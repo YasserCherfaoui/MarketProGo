@@ -12,7 +12,7 @@ type Product struct {
 	Description string  `json:"description"`
 	SKU         string  `gorm:"uniqueIndex;not null" json:"sku"`
 	Barcode     string  `json:"barcode"`
-	QRCode      string  `json:"qr_code"`  // URL to stored QR code image
+	QRCode      string  `json:"qr_code"` // URL to stored QR code image
 	BasePrice   float64 `gorm:"not null" json:"base_price"`
 	B2BPrice    float64 `json:"b2b_price"`
 	CostPrice   float64 `json:"cost_price"`
@@ -44,13 +44,14 @@ type ProductImage struct {
 
 type Category struct {
 	gorm.Model
-	Name        string     `gorm:"not null" json:"name"`
-	Slug        string     `gorm:"uniqueIndex;not null" json:"slug"`
-	Description string     `json:"description"`
-	ParentID    *uint      `json:"parent_id"`
-	Parent      *Category  `json:"parent,omitempty"`
-	Children    []Category `gorm:"foreignKey:ParentID" json:"children,omitempty"`
-	Products    []Product  `gorm:"many2many:product_categories;" json:"products"`
+	Name        string      `gorm:"not null" json:"name"`
+	Slug        string      `gorm:"uniqueIndex;not null" json:"slug"`
+	Description string      `json:"description"`
+	Image       string      `json:"image"`
+	ParentID    *uint       `json:"parent_id"`
+	Parent      *Category   `json:"parent,omitempty"`
+	Children    []*Category `gorm:"foreignKey:ParentID" json:"children,omitempty"`
+	Products    []*Product  `gorm:"many2many:product_categories;" json:"products"`
 }
 
 type InventoryItem struct {
