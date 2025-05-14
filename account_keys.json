@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "algeriemarket-ltd",
+  "private_key_id": "50eba5303315fc93a6a3eb0079c9c4a65f97f5ca",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDILFA3P3BImnsn\nZmrDyDVrRNRK4sUXl1TAmmKoXlbEbicm/G2hq9/ryuOPKdYKEqg7bCuJiPQZGks4\noO29NJqBh+8ZleHxJKEM06ao4fx8HFb9Gert4l2xCvOUseCHm9mU7NvTjX7talic\nqK9l1VRXKSSNygbgmNwdps2IpkyrkhLztb1B2xwNGlazdmaGtUCZVP6yyuA4s3K7\nxwon4sdH8fWAKmR0iLBjMFFortElE88KwKaW2RZj4su1M4xJKo7s+uXwPlZU6Jt1\nigMQcR4mCz/ouzb8hyDgasNbvkiKyRHss5OxiO402CcqjCHYOZn5aFK0wmCGDIOM\ndb9indOTAgMBAAECggEACzypmCBgjkLVzQVr0ufHT+lCPZ3zUHq3UESaazc4ibhh\nTEf5Y40BefwewCeqE1Cuzv8ohoUApvQZ6ujlz6xHTCQ0YOxQDbhvrgenoG1nPhRd\nMcIltQrzFYA24k8F+rbeBQUy5fJYgL1qkgjKJ95M6MOvgKIptqv+F1AI07X6Mdtc\n6dlTBXgSaOor5pxjDg42M7pPe7bDAc+zD0ejpAivMcOYk43AH+eCZ86J+9O/WEi9\nGcAFWPFMiaHBvTkt1vRq2S6eZ/oonUtZjh5PVVpyBRsxxQiFxxCqhIzSPzfo47ZS\nDQMsOVFMqArzoDhpLpSut7vgWKB2FGllqniEotuYYQKBgQDyHs5IIQtY6qdXYcy0\nxayuo2cQBaLRxBYaJhfgFi4TH4fdVyOqnT2KAtwdad5UI5ptvxk3KawxZ7lWKgZt\nKSGAlXeHhjuriw5k+5vxAV0tmUr8BQJNpTjgelvLzXb6SRBpaRf2dMwRX7AFgCLV\nK3ML7Wignyrjop6UBRYGaFgTIwKBgQDTpesVviKBllX+XCZpkIPJJSQxebd9H74P\nPpX6+8OmAEdq9Heu8LecKQNuNjjaPwzfI6J87ab7L+l8S3FhFOJPtY7yy6rPkSTR\nRLUeibNUtmrBQ6iSh1uAZqk/yAW/+8ZQMEzUGuIpWfNXGCSXjEoMUCZg+9vo0nzA\nbfaBAX480QKBgGf8iRX7czcuGM7zxwqAt6iNr273LLWw5Nk4MRriC8nUyfJrQXs+\nazbCAa10UbOLUwD9iSPi9vyFEtmJ1Ra/Co+CIkMHiMslPvpqAdChiFZUNxtEP3f/\nlQz8ID7IsOfPx4euRkdoZFi14xCJtuwc7B1cSoppse7wYfEqugnoeKNHAoGAXXkZ\nqjCe7LyInh30mQrKKTvOEEvBTfGG7xSlCIPIlLfq0sHFWe3WKZGzgilQUpMmDCag\nzKvo42b1p39qQ4YFrU5yI6jvd1yS9hlyJFqMaQ1neJN5D73YG407kn+0imWX4DJ0\nu/hjif/ACOcQwh2jVmzPhmW1ac4MarAl/jO6nQECgYASdxL3R+78HBbcR7Q4cYVX\n36kg9WW1idV1yuXyEaaI9Pc3SVilKeAQf5n4/hNXVEMIBCu9QLrXCaC91GyYK+bo\neU8jmZEhJ4TXPDikh7Nt5qeb7CL6N4BbtMxPr+rCTv997RcMmq8w3+M45p6O2MpX\nD6PqoKhe24c4Xkk1nPf+Rw==\n-----END PRIVATE KEY-----\n",
+  "client_email": "darween@algeriemarket-ltd.iam.gserviceaccount.com",
+  "client_id": "108015581515039923428",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/darween%40algeriemarket-ltd.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
