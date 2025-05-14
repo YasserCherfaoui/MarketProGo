@@ -3,6 +3,7 @@ package product
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
@@ -10,7 +11,44 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (h *ProductHandler) CreateProduct(c *gin.Context) {
+func (h *ProductHandler) UpdateProduct(c *gin.Context) {
+	id := c.Param("id")
+
+	// Find the product with images and categories
+	var product models.Product
+	if err := h.db.Preload("Images").Preload("Categories").First(&product, id).Error; err != nil {
+		response.GenerateBadRequestResponse(c, "product/update", "Product not found")
+		return
+	}
+
+	// Get images_to_delete from form (can be sent as comma-separated or as multiple form fields)
+	imagesToDelete := c.PostFormArray("images_to_delete")
+	if len(imagesToDelete) == 1 && strings.Contains(imagesToDelete[0], ",") {
+		imagesToDelete = strings.Split(imagesToDelete[0], ",")
+	}
+	imagesToDeleteMap := make(map[string]bool)
+	for _, url := range imagesToDelete {
+		imagesToDeleteMap[strings.TrimSpace(url)] = true
+	}
+
+	// Remove only the images that are in images_to_delete
+	var keptImages []models.ProductImage
+	for _, img := range product.Images {
+		if imagesToDeleteMap[img.URL] {
+			// Extract object name from URL
+			parts := strings.SplitN(img.URL, "/", 5)
+			if len(parts) == 5 {
+				objectName := parts[4]
+				h.gcsService.DeleteFile(c.Request.Context(), objectName)
+			}
+			// Delete from DB
+			h.db.Delete(&img)
+		} else {
+			keptImages = append(keptImages, img)
+		}
+	}
+	product.Images = keptImages
+
 	// Parse form fields
 	name := c.PostForm("name")
 	description := c.PostForm("description")
@@ -30,37 +68,34 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 	fmt.Sscanf(costPrice, "%f", &costPriceF)
 	fmt.Sscanf(weight, "%f", &weightF)
 
-	product := models.Product{
-		Name:        name,
-		Description: description,
-		SKU:         sku,
-		Barcode:     barcode,
-		BasePrice:   basePriceF,
-		B2BPrice:    b2bPriceF,
-		CostPrice:   costPriceF,
-		Weight:      weightF,
-		WeightUnit:  weightUnit,
-		IsActive:    true,
-	}
+	product.Name = name
+	product.Description = description
+	product.SKU = sku
+	product.Barcode = barcode
+	product.BasePrice = basePriceF
+	product.B2BPrice = b2bPriceF
+	product.CostPrice = costPriceF
+	product.Weight = weightF
+	product.WeightUnit = weightUnit
 
-	// Handle image files
+	// Handle new image files
 	form, err := c.MultipartForm()
 	if err != nil {
-		response.GenerateBadRequestResponse(c, "product/create", "Invalid multipart form data")
+		response.GenerateBadRequestResponse(c, "product/update", "Invalid multipart form data")
 		return
 	}
 	files := form.File["images"]
 	for idx, fileHeader := range files {
 		file, err := fileHeader.Open()
 		if err != nil {
-			response.GenerateBadRequestResponse(c, "product/create", "Failed to open uploaded image")
+			response.GenerateBadRequestResponse(c, "product/update", "Failed to open uploaded image")
 			return
 		}
 		defer file.Close()
 		objectName := fmt.Sprintf("products/%s_%d_%d%s", sku, time.Now().UnixNano(), idx, filepath.Ext(fileHeader.Filename))
 		attrs, err := h.gcsService.UploadFile(c.Request.Context(), file, objectName, fileHeader.Header.Get("Content-Type"))
 		if err != nil {
-			response.GenerateInternalServerErrorResponse(c, "product/create", fmt.Sprintf("Failed to upload image to GCS: %v", err))
+			response.GenerateInternalServerErrorResponse(c, "product/update", fmt.Sprintf("Failed to upload image to GCS: %v", err))
 			return
 		}
 		image := models.ProductImage{
@@ -77,17 +112,16 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 		}
 	}()
 
-	// Create product
-	if err := tx.Create(&product).Error; err != nil {
+	// Save product
+	if err := tx.Save(&product).Error; err != nil {
 		tx.Rollback()
-		response.GenerateInternalServerErrorResponse(c, "product/create", "Failed to create product")
+		response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to update product")
 		return
 	}
 
 	// Associate categories
 	if len(categoryIDs) > 0 {
 		var categories []models.Category
-		// Convert categoryIDs to uint
 		var ids []uint
 		for _, idStr := range categoryIDs {
 			var id uint
@@ -107,9 +141,9 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		response.GenerateInternalServerErrorResponse(c, "product/create", "Failed to commit transaction")
+		response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to commit transaction")
 		return
 	}
 
-	response.GenerateSuccessResponse(c, "Product created successfully", product)
+	response.GenerateSuccessResponse(c, "Product updated successfully", product)
 }
