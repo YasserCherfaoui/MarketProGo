@@ -16,7 +16,7 @@ func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService) {
 	router := r.Group("/api/v1")
 	authHandler := auth.NewAuthHandler(db)
 	AuthRoutes(router, authHandler)
-	CategoryRoutes(router, db)
+	CategoryRoutes(router, db, gcsService)
 	ProductRoutes(router, db, gcsService)
 	UserRoutes(router, db)
 }

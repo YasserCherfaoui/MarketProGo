@@ -1,11 +1,15 @@
 package category
 
-import "gorm.io/gorm"
+import (
+	"github.com/YasserCherfaoui/MarketProGo/gcs"
+	"gorm.io/gorm"
+)
 
 type CategoryHandler struct {
-	db *gorm.DB
+	db         *gorm.DB
+	gcsService *gcs.GCService
 }
 
-func NewCategoryHandler(db *gorm.DB) *CategoryHandler {
-	return &CategoryHandler{db: db}
+func NewCategoryHandler(db *gorm.DB, gcsService *gcs.GCService) *CategoryHandler {
+	return &CategoryHandler{db: db, gcsService: gcsService}
 }
