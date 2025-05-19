@@ -7,7 +7,7 @@ import (
 )
 
 type APIResponse struct {
-	Status  string      `json:"status"`
+	Status  int         `json:"status"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"` // Use interface{} for flexibility
 	Error   *APIError   `json:"error,omitempty"`
@@ -27,7 +27,7 @@ func NewAPIError(code string, description string) *APIError {
 
 func GenerateResponse(c *gin.Context, status int, message string, data interface{}, err *APIError) {
 	c.JSON(status, APIResponse{
-		Status:  message,
+		Status:  status,
 		Message: message,
 		Data:    data,
 		Error:   err,
