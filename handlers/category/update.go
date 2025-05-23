@@ -46,6 +46,14 @@ func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 	name := c.PostForm("name")
 	description := c.PostForm("description")
 	parentIDStr := c.PostForm("parent_id")
+	isFeatureOne := c.PostForm("is_feature_one")
+	isFeatureOneBool, err := strconv.ParseBool(isFeatureOne)
+	if err != nil {
+		response.GenerateBadRequestResponse(c, "category/update", "Invalid is_feature_one")
+		return
+	}
+	category.IsFeatureOne = isFeatureOneBool
+
 	var parentID *uint
 	if parentIDStr != "" {
 		if pid64, err := strconv.ParseUint(parentIDStr, 10, 64); err == nil {

@@ -44,14 +44,15 @@ type ProductImage struct {
 
 type Category struct {
 	gorm.Model
-	Name        string      `gorm:"not null" json:"name"`
-	Slug        string      `gorm:"uniqueIndex;not null" json:"slug"`
-	Description string      `json:"description"`
-	Image       string      `json:"image"`
-	ParentID    *uint       `json:"parent_id"`
-	Parent      *Category   `json:"parent,omitempty"`
-	Children    []*Category `gorm:"foreignKey:ParentID" json:"children,omitempty"`
-	Products    []*Product  `gorm:"many2many:product_categories;" json:"products"`
+	Name         string      `gorm:"not null" json:"name"`
+	Slug         string      `gorm:"uniqueIndex;not null" json:"slug"`
+	Description  string      `json:"description"`
+	Image        string      `json:"image"`
+	ParentID     *uint       `json:"parent_id"`
+	Parent       *Category   `json:"parent,omitempty"`
+	IsFeatureOne bool        `gorm:"default:false" json:"is_feature_one"`
+	Children     []*Category `gorm:"foreignKey:ParentID" json:"children,omitempty"`
+	Products     []*Product  `gorm:"many2many:product_categories;" json:"products"`
 }
 
 type InventoryItem struct {
