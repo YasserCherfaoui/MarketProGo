@@ -31,7 +31,8 @@ type User struct {
 	Role      string `json:"role"`
 
 	// Addresses
-	Addresses []Address `json:"addresses" gorm:"foreignKey:UserID"`
+	Addresses []*Address `json:"addresses" gorm:"foreignKey:UserID"`
+	Company   *Company   `json:"company" gorm:"foreignKey:CompanyID"`
 }
 
 type Company struct {
@@ -50,7 +51,7 @@ type Company struct {
 	AddressID uint `json:"address_id"`
 
 	// Users
-	Users []User `json:"users" gorm:"foreignKey:CompanyID"`
+	Users []*User `json:"users" gorm:"foreignKey:CompanyID"`
 }
 
 type Address struct {
@@ -64,5 +65,6 @@ type Address struct {
 	IsDefault      bool   `gorm:"default:false" json:"is_default"`
 
 	// Relations
-	UserID uint `json:"user_id"`
+	UserID *uint `json:"user_id"`
+	User   *User `json:"user" gorm:"foreignKey:UserID"`
 }

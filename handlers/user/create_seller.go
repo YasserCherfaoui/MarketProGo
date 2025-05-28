@@ -115,7 +115,7 @@ func (h *UserHandler) CreateSeller(c *gin.Context) {
 		PostalCode:     req.Company.Address.PostalCode,
 		Country:        req.Company.Address.Country,
 		IsDefault:      true,
-		UserID:         user.ID, // Link address to the user
+		UserID:         &user.ID, // Link address to the user
 	}
 
 	if err := tx.Create(&companyAddress).Error; err != nil {

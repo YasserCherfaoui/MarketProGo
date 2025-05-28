@@ -10,14 +10,14 @@ import (
 
 func CarouselRoutes(router *gin.RouterGroup, db *gorm.DB, gcsService *gcs.GCService) {
 	carouselHandler := carousel.NewCarouselHandler(db, gcsService)
-	carouselRouter := router.Group("/carousel")
+	carouselRouter := router.Group("/carousels")
 	{
-		carouselRouter.GET("/", carouselHandler.GetCarousel)
+		carouselRouter.GET("", carouselHandler.GetCarousel)
 	}
 
 	carouselRouter.Use(middlewares.AuthMiddleware())
 	{
-		carouselRouter.POST("/", carouselHandler.CreateCarousel)
+		carouselRouter.POST("", carouselHandler.CreateCarousel)
 	}
 
 }
