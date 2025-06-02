@@ -13,6 +13,7 @@ func ProductRoutes(router *gin.RouterGroup, db *gorm.DB, gcsService *gcs.GCServi
 	productHandler := product.NewProductHandler(db, gcsService)
 
 	productRouter.GET("", productHandler.GetAllProducts)
+	productRouter.GET("/:id", productHandler.GetProduct)
 	productRouter.Use(middlewares.AuthMiddleware())
 	{
 		productRouter.POST("", productHandler.CreateProduct)

@@ -12,12 +12,12 @@ type Product struct {
 	Description string  `json:"description"`
 	SKU         string  `gorm:"uniqueIndex;not null" json:"sku"`
 	Barcode     string  `json:"barcode"`
-	QRCode      string  `json:"qr_code"` // URL to stored QR code image
-	BasePrice   float64 `gorm:"not null" json:"base_price"`
-	B2BPrice    float64 `json:"b2b_price"`
-	CostPrice   float64 `json:"cost_price"`
-	Weight      float64 `json:"weight"`
-	WeightUnit  string  `json:"weight_unit"`
+	QRCode      string  `json:"qr_code"`                    // URL to stored QR code image
+	BasePrice   float64 `gorm:"not null" json:"base_price"` // Price for the customer
+	B2BPrice    float64 `json:"b2b_price"`                  // Price for the business
+	CostPrice   float64 `json:"cost_price"`                 // Price for the supplier
+	Weight      float64 `json:"weight"`                     // Weight of the product
+	WeightUnit  string  `json:"weight_unit"`                // Unit of weight
 	IsActive    bool    `gorm:"default:true" json:"is_active"`
 	IsFeatured  bool    `gorm:"default:false" json:"is_featured"`
 
