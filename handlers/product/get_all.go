@@ -1,10 +1,21 @@
 package product
 
 import (
+	"fmt"
+
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/utils/response"
 	"github.com/gin-gonic/gin"
 )
+
+// PaginatedResponse is the struct for paginated API responses
+// Use this as the data field in the response.GenerateSuccessResponse
+type PaginatedResponse struct {
+	Data     interface{} `json:"data"`
+	Total    int64       `json:"total"`
+	Page     int         `json:"page"`
+	PageSize int         `json:"page_size"`
+}
 
 func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	// Query params
@@ -67,10 +78,39 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 		db = db.Order(priceField + " DESC")
 	}
 
+	page := 1
+	pageSize := 20
+	if p := c.Query("page"); p != "" {
+		fmt.Sscanf(p, "%d", &page)
+		if page < 1 {
+			page = 1
+		}
+	}
+	if ps := c.Query("page_size"); ps != "" {
+		fmt.Sscanf(ps, "%d", &pageSize)
+		if pageSize < 1 {
+			pageSize = 20
+		} else if pageSize > 100 {
+			pageSize = 100
+		}
+	}
+
+	offset := (page - 1) * pageSize
+
+	var total int64
+	db.Count(&total)
+	db = db.Offset(offset).Limit(pageSize)
+
 	if err := db.Find(&products).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "product/get_all", err.Error())
 		return
 	}
 
-	response.GenerateSuccessResponse(c, "Products fetched successfully", products)
+	resp := PaginatedResponse{
+		Data:     products,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	}
+	response.GenerateSuccessResponse(c, "Products fetched successfully", resp)
 }
