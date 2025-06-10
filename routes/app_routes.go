@@ -20,4 +20,5 @@ func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService) {
 	ProductRoutes(router, db, gcsService)
 	UserRoutes(router, db)
 	CarouselRoutes(router, db, gcsService)
+	CartRoutes(router, db)
 }
