@@ -106,6 +106,13 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 		return
 	}
 
+	// Add Appwrite URLs to product images
+	for i := range products {
+		for j := range products[i].Images {
+			products[i].Images[j].URL = h.appwriteService.GetFileURL(products[i].Images[j].URL)
+		}
+	}
+
 	resp := PaginatedResponse{
 		Data:     products,
 		Total:    total,

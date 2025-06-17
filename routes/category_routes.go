@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"github.com/YasserCherfaoui/MarketProGo/aw"
 	"github.com/YasserCherfaoui/MarketProGo/gcs"
 	"github.com/YasserCherfaoui/MarketProGo/handlers/category"
 	"github.com/YasserCherfaoui/MarketProGo/middlewares"
@@ -8,8 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func CategoryRoutes(r *gin.RouterGroup, db *gorm.DB, gcs *gcs.GCService) {
-	categoryHandler := category.NewCategoryHandler(db, gcs)
+func CategoryRoutes(r *gin.RouterGroup, db *gorm.DB, gcs *gcs.GCService, appwriteService *aw.AppwriteService) {
+	categoryHandler := category.NewCategoryHandler(db, gcs, appwriteService)
 	categoryRouter := r.Group("/categories")
 
 	categoryRouter.GET("", categoryHandler.GetAllCategories)

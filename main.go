@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/YasserCherfaoui/MarketProGo/aw"
 	"github.com/YasserCherfaoui/MarketProGo/cfg"
 	"github.com/YasserCherfaoui/MarketProGo/database"
 	"github.com/YasserCherfaoui/MarketProGo/gcs"
@@ -27,7 +28,7 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour, // Cache preflight request for 12 hours
 	}
-
+	// GCS
 	ctx, cancelInit := context.WithTimeout(context.Background(), 30*time.Second) // 30s timeout for init
 	defer cancelInit()
 	gcsService, err := gcs.NewGCSService(ctx, cfg.GCSCredentialsFile, cfg.GCSProjectID, cfg.GCSBucketName)
@@ -40,13 +41,17 @@ func main() {
 		}
 	}()
 
+	// Appwrite
+	appwriteClient := aw.NewAppwriteClient(cfg)
+	appwriteService := aw.NewAppwriteService(appwriteClient)
+
 	r.Use(cors.New(config))
 	db, err := database.ConnectDB()
 	if err != nil {
 		panic(err)
 	}
 
-	routes.AppRoutes(r, db, gcsService)
+	routes.AppRoutes(r, db, gcsService, appwriteService)
 	r.Run()
 
 }

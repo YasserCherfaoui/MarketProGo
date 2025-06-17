@@ -2,9 +2,7 @@ package product
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/utils/response"
@@ -35,13 +33,7 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 	var keptImages []models.ProductImage
 	for _, img := range product.Images {
 		if imagesToDeleteMap[img.URL] {
-			// Extract object name from URL
-			parts := strings.SplitN(img.URL, "/", 5)
-			if len(parts) == 5 {
-				objectName := parts[4]
-				h.gcsService.DeleteFile(c.Request.Context(), objectName)
-			}
-			// Delete from DB
+			// Appwrite: just delete from DB, do not try to delete from GCS
 			h.db.Delete(&img)
 		} else {
 			keptImages = append(keptImages, img)
@@ -85,21 +77,14 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 		return
 	}
 	files := form.File["images"]
-	for idx, fileHeader := range files {
-		file, err := fileHeader.Open()
+	for _, fileHeader := range files {
+		fileId, err := h.appwriteService.UploadFile(fileHeader)
 		if err != nil {
-			response.GenerateBadRequestResponse(c, "product/update", "Failed to open uploaded image")
-			return
-		}
-		defer file.Close()
-		objectName := fmt.Sprintf("products/%s_%d_%d%s", sku, time.Now().UnixNano(), idx, filepath.Ext(fileHeader.Filename))
-		attrs, err := h.gcsService.UploadFile(c.Request.Context(), file, objectName, fileHeader.Header.Get("Content-Type"))
-		if err != nil {
-			response.GenerateInternalServerErrorResponse(c, "product/update", fmt.Sprintf("Failed to upload image to GCS: %v", err))
+			response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to upload image to Appwrite: "+err.Error())
 			return
 		}
 		image := models.ProductImage{
-			URL: fmt.Sprintf("https://storage.googleapis.com/%s/%s", attrs.Bucket, attrs.Name),
+			URL: fileId,
 		}
 		product.Images = append(product.Images, image)
 	}

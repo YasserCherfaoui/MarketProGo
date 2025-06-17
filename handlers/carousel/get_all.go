@@ -12,5 +12,9 @@ func (h *CarouselHandler) GetCarousel(c *gin.Context) {
 		response.GenerateInternalServerErrorResponse(c, "carousel/get_all", err.Error())
 		return
 	}
+	// Add Appwrite URLs to carousel images
+	for i := range carousel {
+		carousel[i].ImageURL = h.appwriteService.GetFileURL(carousel[i].ImageURL)
+	}
 	response.GenerateSuccessResponse(c, "carousel/get_all", carousel)
 }

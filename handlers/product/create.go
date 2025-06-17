@@ -2,8 +2,6 @@ package product
 
 import (
 	"fmt"
-	"path/filepath"
-	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/utils/response"
@@ -50,21 +48,14 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 		return
 	}
 	files := form.File["images"]
-	for idx, fileHeader := range files {
-		file, err := fileHeader.Open()
+	for _, fileHeader := range files {
+		fileId, err := h.appwriteService.UploadFile(fileHeader)
 		if err != nil {
-			response.GenerateBadRequestResponse(c, "product/create", "Failed to open uploaded image")
-			return
-		}
-		defer file.Close()
-		objectName := fmt.Sprintf("products/%s_%d_%d%s", sku, time.Now().UnixNano(), idx, filepath.Ext(fileHeader.Filename))
-		attrs, err := h.gcsService.UploadFile(c.Request.Context(), file, objectName, fileHeader.Header.Get("Content-Type"))
-		if err != nil {
-			response.GenerateInternalServerErrorResponse(c, "product/create", fmt.Sprintf("Failed to upload image to GCS: %v", err))
+			response.GenerateInternalServerErrorResponse(c, "product/create", "Failed to upload image to Appwrite: "+err.Error())
 			return
 		}
 		image := models.ProductImage{
-			URL: fmt.Sprintf("https://storage.googleapis.com/%s/%s", attrs.Bucket, attrs.Name),
+			URL: fileId,
 		}
 		product.Images = append(product.Images, image)
 	}

@@ -1,11 +1,7 @@
 package carousel
 
 import (
-	"fmt"
-	"path/filepath"
 	"strconv"
-	"strings"
-	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/utils/response"
@@ -45,19 +41,12 @@ func (h *CarouselHandler) CreateCarousel(c *gin.Context) {
 	imageURL := ""
 	fileHeader, err := c.FormFile("image")
 	if err == nil && fileHeader != nil {
-		file, err := fileHeader.Open()
+		fileId, err := h.appwriteService.UploadFile(fileHeader)
 		if err != nil {
-			response.GenerateBadRequestResponse(c, "carousel/create", "Failed to open uploaded image")
+			response.GenerateInternalServerErrorResponse(c, "carousel/create", "Failed to upload image to Appwrite: "+err.Error())
 			return
 		}
-		defer file.Close()
-		objectName := fmt.Sprintf("carousel/%s_%d%s", strings.ReplaceAll(title, " ", "_"), time.Now().UnixNano(), filepath.Ext(fileHeader.Filename))
-		attrs, err := h.gcsService.UploadFile(c.Request.Context(), file, objectName, fileHeader.Header.Get("Content-Type"))
-		if err != nil {
-			response.GenerateInternalServerErrorResponse(c, "carousel/create", fmt.Sprintf("Failed to upload image to GCS: %v", err))
-			return
-		}
-		imageURL = fmt.Sprintf("https://storage.googleapis.com/%s/%s", attrs.Bucket, attrs.Name)
+		imageURL = fileId
 	} else {
 		response.GenerateBadRequestResponse(c, "carousel/create", "Image is required")
 		return

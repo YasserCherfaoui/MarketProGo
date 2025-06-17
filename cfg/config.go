@@ -9,17 +9,25 @@ import (
 
 // AppConfig holds all application configurations
 type AppConfig struct {
-	Port               string
+	Port string
+	// Google Cloud Storage
 	GCSCredentialsFile string
 	GCSProjectID       string
 	GCSBucketName      string
 	DatabaseDSN        string
-	GinMode            string
-	DBHost             string
-	DBUser             string
-	DBPassword         string
-	DBName             string
-	DBPort             string
+	// Gin
+	GinMode string
+	// Database
+	DBHost     string
+	DBUser     string
+	DBPassword string
+	DBName     string
+	DBPort     string
+	// Appwrite
+	AppwriteEndpoint string
+	AppwriteProject  string
+	AppwriteKey      string
+	AppwriteBucketId string
 }
 
 // LoadConfig loads configuration from environment variables
@@ -42,6 +50,10 @@ func LoadConfig() (*AppConfig, error) {
 		DBPassword:         getEnv("DB_PASSWORD", "securepass"),
 		DBName:             getEnv("DB_NAME", "main"),
 		DBPort:             getEnv("DB_PORT", "5434"),
+		AppwriteEndpoint:   getEnv("APPWRITE_ENDPOINT", "https://cloud.appwrite.io/v1"),
+		AppwriteProject:    getEnv("APPWRITE_PROJECT", ""),
+		AppwriteKey:        getEnv("APPWRITE_KEY", ""),
+		AppwriteBucketId:   getEnv("APPWRITE_BUCKET_ID", ""),
 	}
 
 	if cfg.GCSBucketName == "" {

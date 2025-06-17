@@ -68,6 +68,7 @@ func ConnectDB() (*gorm.DB, error) {
 		&models.Carousel{},
 		&models.Cart{},
 		&models.CartItem{},
+		&models.Brand{},
 	)
 
 	return db, nil

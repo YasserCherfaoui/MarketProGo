@@ -1,11 +1,8 @@
 package category
 
 import (
-	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/utils/response"
@@ -72,19 +69,13 @@ func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 	// Handle new image file (replace old image if provided)
 	fileHeader, err := c.FormFile("image")
 	if err == nil && fileHeader != nil {
-		file, err := fileHeader.Open()
+		// Appwrite logic
+		fileId, err := h.appwriteService.UploadFile(fileHeader)
 		if err != nil {
-			response.GenerateBadRequestResponse(c, "category/update", "Failed to open uploaded image")
+			response.GenerateInternalServerErrorResponse(c, "category/update", "Failed to upload image to Appwrite: "+err.Error())
 			return
 		}
-		defer file.Close()
-		objectName := fmt.Sprintf("categories/%s_%d%s", strings.ReplaceAll(name, " ", "_"), time.Now().UnixNano(), filepath.Ext(fileHeader.Filename))
-		attrs, err := h.gcsService.UploadFile(c.Request.Context(), file, objectName, fileHeader.Header.Get("Content-Type"))
-		if err != nil {
-			response.GenerateInternalServerErrorResponse(c, "category/update", fmt.Sprintf("Failed to upload image to GCS: %v", err))
-			return
-		}
-		category.Image = fmt.Sprintf("https://storage.googleapis.com/%s/%s", attrs.Bucket, attrs.Name)
+		category.Image = fileId
 	}
 
 	// Update slug if name changed

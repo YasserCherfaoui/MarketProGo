@@ -2,10 +2,8 @@ package category
 
 import (
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/utils/response"
@@ -32,19 +30,30 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 	imageURL := ""
 	fileHeader, err := c.FormFile("image")
 	if err == nil && fileHeader != nil {
-		file, err := fileHeader.Open()
+		// GCS logic commented out
+		/*
+			file, err := fileHeader.Open()
+			if err != nil {
+				response.GenerateBadRequestResponse(c, "category/create", "Failed to open uploaded image")
+				return
+			}
+			defer file.Close()
+			objectName := fmt.Sprintf("categories/%s_%d%s", strings.ReplaceAll(name, " ", "_"), time.Now().UnixNano(), filepath.Ext(fileHeader.Filename))
+			attrs, err := h.gcsService.UploadFile(c.Request.Context(), file, objectName, fileHeader.Header.Get("Content-Type"))
+			if err != nil {
+				response.GenerateInternalServerErrorResponse(c, "category/create", fmt.Sprintf("Failed to upload image to GCS: %v", err))
+				return
+			}
+			imageURL = fmt.Sprintf("https://storage.googleapis.com/%s/%s", attrs.Bucket, attrs.Name)
+		*/
+
+		// Appwrite logic
+		fileId, err := h.appwriteService.UploadFile(fileHeader)
 		if err != nil {
-			response.GenerateBadRequestResponse(c, "category/create", "Failed to open uploaded image")
+			response.GenerateInternalServerErrorResponse(c, "category/create", "Failed to upload image to Appwrite: "+err.Error())
 			return
 		}
-		defer file.Close()
-		objectName := fmt.Sprintf("categories/%s_%d%s", strings.ReplaceAll(name, " ", "_"), time.Now().UnixNano(), filepath.Ext(fileHeader.Filename))
-		attrs, err := h.gcsService.UploadFile(c.Request.Context(), file, objectName, fileHeader.Header.Get("Content-Type"))
-		if err != nil {
-			response.GenerateInternalServerErrorResponse(c, "category/create", fmt.Sprintf("Failed to upload image to GCS: %v", err))
-			return
-		}
-		imageURL = fmt.Sprintf("https://storage.googleapis.com/%s/%s", attrs.Bucket, attrs.Name)
+		imageURL = h.appwriteService.GetFileURL(fileId)
 	}
 
 	category := models.Category{
