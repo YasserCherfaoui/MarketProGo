@@ -6,40 +6,82 @@ import (
 	"gorm.io/gorm"
 )
 
+// Product represents the base product information.
 type Product struct {
 	gorm.Model
-	Name        string  `gorm:"not null" json:"name"`
-	Description string  `json:"description"`
-	SKU         string  `gorm:"uniqueIndex;not null" json:"sku"`
-	Barcode     string  `json:"barcode"`
-	QRCode      string  `json:"qr_code"`                    // URL to stored QR code image
-	BasePrice   float64 `gorm:"not null" json:"base_price"` // Price for the customer
-	B2BPrice    float64 `json:"b2b_price"`                  // Price for the business
-	CostPrice   float64 `json:"cost_price"`                 // Price for the supplier
-	Weight      float64 `json:"weight"`                     // Weight of the product
-	WeightUnit  string  `json:"weight_unit"`                // Unit of weight
-	IsActive    bool    `gorm:"default:true" json:"is_active"`
-	IsFeatured  bool    `gorm:"default:false" json:"is_featured"`
+	Name        string `gorm:"not null" json:"name"`
+	Description string `json:"description"`
+	IsActive    bool   `gorm:"default:true" json:"is_active"`
+	IsFeatured  bool   `gorm:"default:false" json:"is_featured"`
 
-	// Images
-	Images []ProductImage `json:"images"`
-
-	// Categories
-	Categories []Category `gorm:"many2many:product_categories;" json:"categories"`
-
-	// Inventory
-	InventoryItems []InventoryItem `json:"inventory_items"`
-
-	// Specifications
+	// Relationships
+	Categories     []*Category            `gorm:"many2many:product_categories;" json:"categories"`
+	Tags           []*Tag                 `gorm:"many2many:product_tags;" json:"tags"`
+	Images         []ProductImage         `gorm:"foreignKey:ProductID" json:"images"`
+	Options        []ProductOption        `gorm:"foreignKey:ProductID" json:"options"`
+	Variants       []ProductVariant       `gorm:"foreignKey:ProductID" json:"variants"`
 	Specifications []ProductSpecification `json:"specifications"`
 }
 
+// ProductVariant represents a specific version of a product, like size or color.
+type ProductVariant struct {
+	gorm.Model
+	ProductID  uint        `json:"product_id"`
+	Product    Product     `json:"-"`
+	Name       string      `gorm:"not null" json:"name"` // e.g., "1kg", "500g", "250g"
+	SKU        string      `gorm:"uniqueIndex;not null" json:"sku"`
+	Barcode    string      `json:"barcode"`
+	BasePrice  float64     `gorm:"not null" json:"base_price"`
+	B2BPrice   float64     `json:"b2b_price"`
+	CostPrice  float64     `json:"cost_price"`
+	Weight     float64     `json:"weight"`
+	WeightUnit string      `json:"weight_unit"`
+	Dimensions *Dimensions `gorm:"embedded" json:"dimensions"`
+	IsActive   bool        `gorm:"default:true" json:"is_active"`
+
+	// Relationships
+	Images         []ProductImage        `gorm:"foreignKey:ProductVariantID" json:"images"`
+	OptionValues   []*ProductOptionValue `gorm:"many2many:variant_option_values;" json:"option_values"`
+	InventoryItems []InventoryItem       `json:"inventory_items"`
+}
+
+// ProductOption defines a configurable property for a product, like "Flavor" or "Size".
+type ProductOption struct {
+	gorm.Model
+	ProductID uint                 `json:"product_id"`
+	Name      string               `gorm:"not null" json:"name"` // e.g., "Flavor", "Size"
+	Values    []ProductOptionValue `gorm:"foreignKey:ProductOptionID" json:"values"`
+}
+
+// ProductOptionValue represents a specific choice for a ProductOption, like "Orange" or "1L".
+type ProductOptionValue struct {
+	gorm.Model
+	ProductOptionID uint   `json:"product_option_id"`
+	Value           string `gorm:"not null" json:"value"` // e.g., "Orange", "1L"
+}
+
+// Dimensions represents the physical size of a product or variant.
+type Dimensions struct {
+	Length float64 `json:"length"`
+	Width  float64 `json:"width"`
+	Height float64 `json:"height"`
+	Unit   string  `json:"unit"` // e.g., "cm", "in"
+}
+
+// Tag represents a keyword or label that can be associated with a product.
+type Tag struct {
+	gorm.Model
+	Name string `gorm:"uniqueIndex;not null" json:"name"`
+}
+
+// ProductImage can be associated with a base product or a specific variant.
 type ProductImage struct {
 	gorm.Model
-	ProductID uint   `json:"product_id"`
-	URL       string `gorm:"not null" json:"url"`
-	IsPrimary bool   `gorm:"default:false" json:"is_primary"`
-	AltText   string `json:"alt_text"`
+	ProductID        *uint  `json:"product_id"` // Nullable for variant-specific images
+	ProductVariantID *uint  `json:"product_variant_id"`
+	URL              string `gorm:"not null" json:"url"`
+	IsPrimary        bool   `gorm:"default:false" json:"is_primary"`
+	AltText          string `json:"alt_text"`
 }
 
 type Category struct {
@@ -52,20 +94,21 @@ type Category struct {
 	Parent       *Category   `json:"parent,omitempty"`
 	IsFeatureOne bool        `gorm:"default:false" json:"is_feature_one"`
 	Children     []*Category `gorm:"foreignKey:ParentID" json:"children,omitempty"`
-	Products     []*Product  `gorm:"many2many:product_categories;" json:"products"`
+	Products     []*Product  `gorm:"many2many:product_categories;" json:"products,omitempty"`
 }
 
+// InventoryItem tracks stock for a specific product variant in a warehouse.
 type InventoryItem struct {
 	gorm.Model
-	ProductID   uint      `json:"product_id"`
-	Product     Product   `json:"-"`
-	WarehouseID uint      `json:"warehouse_id"`
-	Warehouse   Warehouse `json:"warehouse"`
-	Quantity    int       `gorm:"not null" json:"quantity"`
-	Reserved    int       `gorm:"default:0" json:"reserved"`
-	BatchNumber string    `json:"batch_number"`
-	ExpiryDate  time.Time `json:"expiry_date"`
-	Status      string    `gorm:"default:'active'" json:"status"` // active, expired, damaged
+	ProductVariantID uint           `json:"product_variant_id"`
+	ProductVariant   ProductVariant `json:"-"`
+	WarehouseID      uint           `json:"warehouse_id"`
+	Warehouse        Warehouse      `json:"warehouse"`
+	Quantity         int            `gorm:"not null" json:"quantity"`
+	Reserved         int            `gorm:"default:0" json:"reserved"`
+	BatchNumber      string         `json:"batch_number"`
+	ExpiryDate       *time.Time     `json:"expiry_date"`
+	Status           string         `gorm:"default:'active'" json:"status"` // active, expired, damaged
 }
 
 type Warehouse struct {

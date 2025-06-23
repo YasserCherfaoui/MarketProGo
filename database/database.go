@@ -43,11 +43,15 @@ func ConnectDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&models.Company{},
 		&models.User{},
 		&models.Address{},
 		&models.Product{},
+		&models.ProductVariant{},
+		&models.ProductOption{},
+		&models.ProductOptionValue{},
+		&models.Tag{},
 		&models.ProductImage{},
 		&models.Category{},
 		&models.InventoryItem{},
@@ -69,7 +73,9 @@ func ConnectDB() (*gorm.DB, error) {
 		&models.Cart{},
 		&models.CartItem{},
 		&models.Brand{},
-	)
+	); err != nil {
+		return nil, err
+	}
 
 	return db, nil
 }

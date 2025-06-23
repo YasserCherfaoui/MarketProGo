@@ -27,89 +27,121 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	minPrice := c.Query("min_price")
 	maxPrice := c.Query("max_price")
 	categoryID := c.Query("category_id")
+	tag := c.Query("tag")
 	priceType := c.DefaultQuery("price_type", "customer") // customer or business
 	sortByPrice := c.Query("sort_by_price")               // asc or desc
 
-	products := []models.Product{}
+	var products []models.Product
 
-	// Determine which price field to use
-	priceField := "base_price"
-	if priceType == "business" {
-		priceField = "b2b_price"
-	}
+	// Base query with all preloads
+	db := h.db.Model(&models.Product{}).
+		Preload("Categories").
+		Preload("Tags").
+		Preload("Images").
+		Preload("Options.Values").
+		Preload("Variants.Images").
+		Preload("Variants.OptionValues").
+		Preload("Specifications")
 
-	db := h.db.Model(&models.Product{}).Preload("Categories").Preload("Images")
+	// Use a subquery for filtering to handle variants correctly
+	subQuery := h.db.Table("products").Select("DISTINCT products.id")
 
-	if name != "" {
-		db = db.Where("name ILIKE ?", "%"+name+"%")
-	}
-	if sku != "" {
-		db = db.Where("sku ILIKE ?", "%"+sku+"%")
-	}
-	if barcode != "" {
-		db = db.Where("barcode = ?", barcode)
-	}
-	if isActive != "" {
-		if isActive == "true" {
-			db = db.Where("is_active = ?", true)
-		} else if isActive == "false" {
-			db = db.Where("is_active = ?", false)
-		}
-	}
-	if isFeatured != "" {
-		if isFeatured == "true" {
-			db = db.Where("is_featured = ?", true)
-		} else if isFeatured == "false" {
-			db = db.Where("is_featured = ?", false)
-		}
-	}
-	if minPrice != "" {
-		db = db.Where(priceField+" >= ?", minPrice)
-	}
-	if maxPrice != "" {
-		db = db.Where(priceField+" <= ?", maxPrice)
+	// Apply filters that require joins
+	requiresVariantJoin := sku != "" || barcode != "" || minPrice != "" || maxPrice != "" || sortByPrice != ""
+	if requiresVariantJoin {
+		subQuery = subQuery.Joins("JOIN product_variants ON product_variants.product_id = products.id")
 	}
 	if categoryID != "" {
-		db = db.Joins("JOIN product_categories ON product_categories.product_id = products.id").Where("product_categories.category_id = ?", categoryID)
+		subQuery = subQuery.Joins("JOIN product_categories ON product_categories.product_id = products.id")
 	}
-	if sortByPrice == "asc" {
-		db = db.Order(priceField + " ASC")
-	} else if sortByPrice == "desc" {
-		db = db.Order(priceField + " DESC")
+	if tag != "" {
+		subQuery = subQuery.Joins("JOIN product_tags ON product_tags.product_id = products.id").
+			Joins("JOIN tags ON tags.id = product_tags.tag_id")
 	}
 
+	// Apply filtering conditions
+	if name != "" {
+		subQuery = subQuery.Where("products.name ILIKE ?", "%"+name+"%")
+	}
+	if isActive != "" {
+		subQuery = subQuery.Where("products.is_active = ?", isActive == "true")
+	}
+	if isFeatured != "" {
+		subQuery = subQuery.Where("products.is_featured = ?", isFeatured == "true")
+	}
+	if categoryID != "" {
+		subQuery = subQuery.Where("product_categories.category_id = ?", categoryID)
+	}
+	if tag != "" {
+		subQuery = subQuery.Where("tags.name ILIKE ?", "%"+tag+"%")
+	}
+
+	// Variant-specific filters
+	if sku != "" {
+		subQuery = subQuery.Where("product_variants.sku ILIKE ?", "%"+sku+"%")
+	}
+	if barcode != "" {
+		subQuery = subQuery.Where("product_variants.barcode = ?", barcode)
+	}
+	priceField := "product_variants.base_price"
+	if priceType == "business" {
+		priceField = "product_variants.b2b_price"
+	}
+	if minPrice != "" {
+		subQuery = subQuery.Where(priceField+" >= ?", minPrice)
+	}
+	if maxPrice != "" {
+		subQuery = subQuery.Where(priceField+" <= ?", maxPrice)
+	}
+
+	if sortByPrice != "" && (sortByPrice == "asc" || sortByPrice == "desc") {
+		// Ordering needs to be on the outer query
+		db = db.Order("id ASC") // Default order
+	}
+
+	// Pagination logic
 	page := 1
 	pageSize := 20
 	if p := c.Query("page"); p != "" {
 		fmt.Sscanf(p, "%d", &page)
-		if page < 1 {
-			page = 1
-		}
 	}
 	if ps := c.Query("page_size"); ps != "" {
 		fmt.Sscanf(ps, "%d", &pageSize)
-		if pageSize < 1 {
-			pageSize = 20
-		} else if pageSize > 100 {
-			pageSize = 100
-		}
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	} else if pageSize > 100 {
+		pageSize = 100
 	}
 
-	offset := (page - 1) * pageSize
-
+	// Get total count based on the filtered subquery
 	var total int64
-	db.Count(&total)
-	db = db.Offset(offset).Limit(pageSize)
+	h.db.Table("(?) as sub", subQuery).Count(&total)
 
-	if err := db.Find(&products).Error; err != nil {
-		response.GenerateInternalServerErrorResponse(c, "product/get_all", err.Error())
-		return
+	// Get the IDs for the current page
+	var productIDs []uint
+	subQuery.Offset((page-1)*pageSize).Limit(pageSize).Pluck("id", &productIDs)
+
+	// Fetch the full product data for the paginated IDs
+	if len(productIDs) > 0 {
+		if err := db.Where("id IN ?", productIDs).Find(&products).Error; err != nil {
+			response.GenerateInternalServerErrorResponse(c, "product/get_all", err.Error())
+			return
+		}
 	}
 
 	// Add Appwrite URLs to product images
 	for i := range products {
 		for j := range products[i].Images {
 			products[i].Images[j].URL = h.appwriteService.GetFileURL(products[i].Images[j].URL)
+		}
+		for j := range products[i].Variants {
+			for k := range products[i].Variants[j].Images {
+				products[i].Variants[j].Images[k].URL = h.appwriteService.GetFileURL(products[i].Variants[j].Images[k].URL)
+			}
 		}
 	}
 

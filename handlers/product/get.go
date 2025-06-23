@@ -9,11 +9,30 @@ import (
 func (h *ProductHandler) GetProduct(c *gin.Context) {
 	productID := c.Param("id")
 
-	product := models.Product{}
-	err := h.db.Where("id = ?", productID).Preload("Categories").Preload("Images").First(&product).Error
+	var product models.Product
+	err := h.db.
+		Preload("Categories").
+		Preload("Tags").
+		Preload("Images").
+		Preload("Options.Values").
+		Preload("Variants.Images").
+		Preload("Variants.OptionValues").
+		Preload("Specifications").
+		First(&product, "id = ?", productID).Error
+
 	if err != nil {
 		response.GenerateNotFoundResponse(c, "product/get", "Product not found")
 		return
+	}
+
+	// Add Appwrite URLs to product images
+	for i := range product.Images {
+		product.Images[i].URL = h.appwriteService.GetFileURL(product.Images[i].URL)
+	}
+	for i := range product.Variants {
+		for j := range product.Variants[i].Images {
+			product.Variants[i].Images[j].URL = h.appwriteService.GetFileURL(product.Variants[i].Images[j].URL)
+		}
 	}
 
 	response.GenerateSuccessResponse(c, "product/get", product)
