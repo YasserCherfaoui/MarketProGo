@@ -14,33 +14,25 @@ import (
 // but this approach uses separate arrays for explicit actions (add, update, delete).
 
 type UpdateProductData struct {
-	Name             *string                `json:"name"`
-	Description      *string                `json:"description"`
-	IsActive         *bool                  `json:"is_active"`
-	IsFeatured       *bool                  `json:"is_featured"`
-	CategoryIDs      []uint                 `json:"category_ids"`
-	Tags             []string               `json:"tags"`
-	ImagesToAdd      []ImageData            `json:"images_to_add"`
-	Specifications   []SpecificationRequest `json:"specifications_to_add"`
-	OptionsToAdd     []OptionData           `json:"options_to_add"`
-	VariantsToAdd    []VariantData          `json:"variants_to_add"`
-	VariantsToUpdate []VariantUpdateData    `json:"variants_to_update"`
-	VariantsToDelete []uint                 `json:"variants_to_delete"`
+	Name                   *string                   `json:"name"`
+	Description            *string                   `json:"description"`
+	IsActive               *bool                     `json:"is_active"`
+	IsFeatured             *bool                     `json:"is_featured"`
+	CategoryIDs            []uint                    `json:"category_ids"`
+	Tags                   []string                  `json:"tags"`
+	ImagesToAdd            []ImageData               `json:"images_to_add"`
+	ImagesToUpdate         []ImageUpdateData         `json:"images_to_update"`
+	ImagesToDelete         []uint                    `json:"images_to_delete"`
+	SpecificationsToAdd    []SpecificationRequest    `json:"specifications_to_add"`
+	SpecificationsToUpdate []SpecificationUpdateData `json:"specifications_to_update"`
+	SpecificationsToDelete []uint                    `json:"specifications_to_delete"`
+	OptionsToAdd           []OptionData              `json:"options_to_add"`
+	OptionsToUpdate        []OptionUpdateData        `json:"options_to_update"`
+	OptionsToDelete        []uint                    `json:"options_to_delete"`
+	VariantsToAdd          []VariantData             `json:"variants_to_add"`
+	VariantsToUpdate       []VariantUpdateData       `json:"variants_to_update"`
+	VariantsToDelete       []uint                    `json:"variants_to_delete"`
 	// Note: Image updates are handled via file upload and 'images_to_delete' form field
-}
-
-type VariantUpdateData struct {
-	ID         uint               `json:"id"`
-	Name       *string            `json:"name"`
-	SKU        *string            `json:"sku"`
-	Barcode    *string            `json:"barcode"`
-	BasePrice  *float64           `json:"base_price"`
-	B2BPrice   *float64           `json:"b2b_price"`
-	CostPrice  *float64           `json:"cost_price"`
-	Weight     *float64           `json:"weight"`
-	WeightUnit *string            `json:"weight_unit"`
-	Dimensions *models.Dimensions `json:"dimensions"`
-	IsActive   *bool              `json:"is_active"`
 }
 
 func (h *ProductHandler) UpdateProduct(c *gin.Context) {
@@ -121,6 +113,199 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 				return
 			}
 		}
+
+		// Handle Images to Update (metadata)
+		for _, imgUpdate := range data.ImagesToUpdate {
+			var img models.ProductImage
+			if err := tx.First(&img, imgUpdate.ID).Error; err != nil {
+				tx.Rollback()
+				response.GenerateBadRequestResponse(c, "product/update", "Image with ID "+strconv.Itoa(int(imgUpdate.ID))+" not found.")
+				return
+			}
+			if imgUpdate.IsPrimary != nil {
+				img.IsPrimary = *imgUpdate.IsPrimary
+			}
+			if imgUpdate.AltText != nil {
+				img.AltText = *imgUpdate.AltText
+			}
+			if err := tx.Save(&img).Error; err != nil {
+				tx.Rollback()
+				response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to update image metadata")
+				return
+			}
+		}
+
+		// Handle Images to Delete (already handled above, but for completeness)
+		for _, imgID := range data.ImagesToDelete {
+			if err := tx.Delete(&models.ProductImage{}, imgID).Error; err != nil {
+				tx.Rollback()
+				response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to delete image")
+				return
+			}
+		}
+
+		// --- Specifications CRUD ---
+		// Add
+		for _, spec := range data.SpecificationsToAdd {
+			s := models.ProductSpecification{
+				ProductID: product.ID,
+				Name:      spec.Name,
+				Value:     spec.Value,
+				Unit:      spec.Unit,
+			}
+			if err := tx.Create(&s).Error; err != nil {
+				tx.Rollback()
+				response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to add specification")
+				return
+			}
+		}
+		// Update
+		for _, spec := range data.SpecificationsToUpdate {
+			var s models.ProductSpecification
+			if err := tx.First(&s, spec.ID).Error; err != nil {
+				tx.Rollback()
+				response.GenerateBadRequestResponse(c, "product/update", "Specification with ID "+strconv.Itoa(int(spec.ID))+" not found.")
+				return
+			}
+			if spec.Name != nil {
+				s.Name = *spec.Name
+			}
+			if spec.Value != nil {
+				s.Value = *spec.Value
+			}
+			if spec.Unit != nil {
+				s.Unit = *spec.Unit
+			}
+			if err := tx.Save(&s).Error; err != nil {
+				tx.Rollback()
+				response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to update specification")
+				return
+			}
+		}
+		// Delete
+		for _, specID := range data.SpecificationsToDelete {
+			if err := tx.Delete(&models.ProductSpecification{}, specID).Error; err != nil {
+				tx.Rollback()
+				response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to delete specification")
+				return
+			}
+		}
+
+		// --- Options CRUD ---
+		// Add
+		for _, opt := range data.OptionsToAdd {
+			option := models.ProductOption{ProductID: product.ID, Name: opt.Name}
+			if err := tx.Create(&option).Error; err != nil {
+				tx.Rollback()
+				response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to add option")
+				return
+			}
+			for _, val := range opt.Values {
+				optionValue := models.ProductOptionValue{ProductOptionID: option.ID, Value: val}
+				if err := tx.Create(&optionValue).Error; err != nil {
+					tx.Rollback()
+					response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to add option value")
+					return
+				}
+			}
+		}
+		// Update
+		for _, opt := range data.OptionsToUpdate {
+			var option models.ProductOption
+			if err := tx.First(&option, opt.ID).Error; err != nil {
+				tx.Rollback()
+				response.GenerateBadRequestResponse(c, "product/update", "Option with ID "+strconv.Itoa(int(opt.ID))+" not found.")
+				return
+			}
+			if opt.Name != nil {
+				option.Name = *opt.Name
+			}
+			if err := tx.Save(&option).Error; err != nil {
+				tx.Rollback()
+				response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to update option")
+				return
+			}
+			if opt.Values != nil {
+				// Remove all old values and add new ones
+				tx.Where("product_option_id = ?", option.ID).Delete(&models.ProductOptionValue{})
+				for _, val := range *opt.Values {
+					optionValue := models.ProductOptionValue{ProductOptionID: option.ID, Value: val}
+					if err := tx.Create(&optionValue).Error; err != nil {
+						tx.Rollback()
+						response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to update option values")
+						return
+					}
+				}
+			}
+		}
+		// Delete
+		for _, optID := range data.OptionsToDelete {
+			tx.Where("product_option_id = ?", optID).Delete(&models.ProductOptionValue{})
+			if err := tx.Delete(&models.ProductOption{}, optID).Error; err != nil {
+				tx.Rollback()
+				response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to delete option")
+				return
+			}
+		}
+
+		// --- Variants CRUD ---
+		// Add
+		for _, varData := range data.VariantsToAdd {
+			variant := models.ProductVariant{
+				ProductID:  product.ID,
+				Name:       varData.Name,
+				SKU:        varData.SKU,
+				Barcode:    varData.Barcode,
+				BasePrice:  varData.BasePrice,
+				B2BPrice:   varData.B2BPrice,
+				CostPrice:  varData.CostPrice,
+				Weight:     varData.Weight,
+				WeightUnit: varData.WeightUnit,
+				Dimensions: &varData.Dimensions,
+				IsActive:   varData.IsActive,
+			}
+			if err := tx.Create(&variant).Error; err != nil {
+				tx.Rollback()
+				response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to add variant")
+				return
+			}
+			// Add images for variant
+			for _, imgData := range varData.Images {
+				fileID, ok := uploadedFileIDs[imgData.FileName]
+				if !ok {
+					tx.Rollback()
+					response.GenerateBadRequestResponse(c, "product/update", "Image file '"+imgData.FileName+"' for variant '"+variant.Name+"' not found in upload")
+					return
+				}
+				image := models.ProductImage{
+					ProductVariantID: &variant.ID,
+					URL:              fileID,
+					IsPrimary:        imgData.IsPrimary,
+					AltText:          imgData.AltText,
+				}
+				if err := tx.Create(&image).Error; err != nil {
+					tx.Rollback()
+					response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to add variant image")
+					return
+				}
+			}
+			// Associate option values
+			if len(varData.OptionValues) > 0 {
+				var optionValues []*models.ProductOptionValue
+				for _, val := range varData.OptionValues {
+					var ov models.ProductOptionValue
+					if err := tx.Where("value = ?", val).First(&ov).Error; err == nil {
+						optionValues = append(optionValues, &ov)
+					}
+				}
+				if err := tx.Model(&variant).Association("OptionValues").Replace(optionValues); err != nil {
+					tx.Rollback()
+					response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to associate option values to variant")
+					return
+				}
+			}
+		}
+		// Update and delete for variants is already implemented above
 
 		// Update base product fields if provided
 		if data.Name != nil {
