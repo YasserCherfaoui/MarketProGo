@@ -68,17 +68,24 @@ type Order struct {
 
 type OrderItem struct {
 	gorm.Model
-	OrderID        uint    `json:"order_id"`
-	Order          Order   `json:"-"`
-	ProductID      uint    `json:"product_id"`
-	Product        Product `json:"product"`
+	OrderID uint  `json:"order_id"`
+	Order   Order `json:"-"`
+
+	// New variant-based structure
+	ProductVariantID uint           `json:"product_variant_id"`
+	ProductVariant   ProductVariant `json:"product_variant" gorm:"foreignKey:ProductVariantID"`
+
+	// Legacy field for backward compatibility (will be removed later)
+	ProductID *uint    `json:"product_id,omitempty"`
+	Product   *Product `json:"product,omitempty" gorm:"foreignKey:ProductID"`
+
 	Quantity       int     `gorm:"not null" json:"quantity"`
 	UnitPrice      float64 `gorm:"not null" json:"unit_price"`
 	TaxAmount      float64 `json:"tax_amount"`
 	DiscountAmount float64 `json:"discount_amount"`
 	TotalAmount    float64 `gorm:"not null" json:"total_amount"`
 
-	// Inventory tracking
+	// Inventory tracking (now properly linked to variant-based inventory)
 	InventoryItemID *uint          `json:"inventory_item_id,omitempty"`
 	InventoryItem   *InventoryItem `json:"inventory_item,omitempty"`
 

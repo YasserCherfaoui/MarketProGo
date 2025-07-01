@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -43,39 +42,39 @@ func ConnectDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(
-		&models.Company{},
-		&models.User{},
-		&models.Address{},
-		&models.Product{},
-		&models.ProductVariant{},
-		&models.ProductOption{},
-		&models.ProductOptionValue{},
-		&models.Tag{},
-		&models.ProductImage{},
-		&models.Category{},
-		&models.InventoryItem{},
-		&models.Warehouse{},
-		&models.ProductSpecification{},
-		&models.Order{},
-		&models.OrderItem{},
-		&models.Invoice{},
-		&models.PurchaseOrder{},
-		&models.POItem{},
-		&models.Supplier{},
-		&models.SupplierContact{},
-		&models.Document{},
-		&models.Contract{},
-		&models.ContractItem{},
-		&models.ContractSchedule{},
-		&models.ContractOrder{},
-		&models.Carousel{},
-		&models.Cart{},
-		&models.CartItem{},
-		&models.Brand{},
-	); err != nil {
-		return nil, err
-	}
+	// if err := db.AutoMigrate(
+	// 	&models.Company{},
+	// 	&models.User{},
+	// 	&models.Address{},
+	// 	&models.Product{},
+	// 	&models.ProductVariant{},
+	// 	&models.ProductOption{},
+	// 	&models.ProductOptionValue{},
+	// 	&models.Tag{},
+	// 	&models.ProductImage{},
+	// 	&models.Category{},
+	// 	&models.InventoryItem{},
+	// 	&models.Warehouse{},
+	// 	&models.ProductSpecification{},
+	// 	&models.Order{},
+	// 	&models.OrderItem{},
+	// 	&models.Invoice{},
+	// 	&models.PurchaseOrder{},
+	// 	&models.POItem{},
+	// 	&models.Supplier{},
+	// 	&models.SupplierContact{},
+	// 	&models.Document{},
+	// 	&models.Contract{},
+	// 	&models.ContractItem{},
+	// 	&models.ContractSchedule{},
+	// 	&models.ContractOrder{},
+	// 	&models.Carousel{},
+	// 	&models.Cart{},
+	// 	&models.CartItem{},
+	// 	&models.Brand{},
+	// ); err != nil {
+	// 	return nil, err
+	// }
 
 	return db, nil
 }

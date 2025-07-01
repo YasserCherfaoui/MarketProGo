@@ -45,7 +45,14 @@ func (h *CartHandler) UpdateItem(c *gin.Context) {
 		return
 	}
 
+	// Update quantity and recalculate total price
 	item.Quantity = req.Quantity
+	item.TotalPrice = float64(item.Quantity) * item.UnitPrice
+
 	h.db.Save(&item)
+
+	// Preload variant and product data for response
+	h.db.Preload("ProductVariant.Product").Preload("ProductVariant.Images").First(&item, item.ID)
+
 	response.GenerateSuccessResponse(c, "cart/update_item", item)
 }

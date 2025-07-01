@@ -25,5 +25,6 @@ func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService, appwriteSe
 	UserRoutes(router, db)
 	CarouselRoutes(router, db, gcsService, appwriteService)
 	CartRoutes(router, db)
+	OrderRoutes(router, db)
 	router.GET("/file/preview/:fileId", fileHandler.ProxyFilePreview)
 }

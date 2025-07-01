@@ -17,7 +17,11 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 	uid := userID.(uint)
 	var cart models.Cart
 
-	if err := h.db.Preload("Items.Product.Images").Where("user_id = ?", uid).First(&cart).Error; err != nil {
+	if err := h.db.Preload("Items.ProductVariant.Product").
+		Preload("Items.ProductVariant.Product.Images").
+		Preload("Items.ProductVariant.OptionValues").
+		Preload("Items.Product"). // Legacy support
+		Where("user_id = ?", uid).First(&cart).Error; err != nil {
 		// If not found, create a new cart
 		cart = models.Cart{UserID: &uid}
 		if err := h.db.Create(&cart).Error; err != nil {

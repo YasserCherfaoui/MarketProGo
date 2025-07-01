@@ -27,17 +27,17 @@ type Product struct {
 type ProductVariant struct {
 	gorm.Model
 	ProductID  uint        `json:"product_id"`
-	Product    Product     `json:"-"`
+	Product    Product     `json:"product"`
 	Name       string      `gorm:"not null" json:"name"` // e.g., "1kg", "500g", "250g"
 	SKU        string      `gorm:"uniqueIndex;not null" json:"sku"`
 	Barcode    string      `json:"barcode"`
-	BasePrice  float64     `gorm:"not null" json:"base_price"`
-	B2BPrice   float64     `json:"b2b_price"`
-	CostPrice  float64     `json:"cost_price"`
-	Weight     float64     `json:"weight"`
-	WeightUnit string      `json:"weight_unit"`
-	Dimensions *Dimensions `gorm:"embedded" json:"dimensions"`
-	IsActive   bool        `gorm:"default:true" json:"is_active"`
+	BasePrice  float64     `gorm:"not null" json:"base_price"`    // price for clients
+	B2BPrice   float64     `json:"b2b_price"`                     // price for b2b customers
+	CostPrice  float64     `json:"cost_price"`                    // cost price for the product
+	Weight     float64     `json:"weight"`                        // weight of the product
+	WeightUnit string      `json:"weight_unit"`                   // unit of weight
+	Dimensions *Dimensions `gorm:"embedded" json:"dimensions"`    // dimensions of the product
+	IsActive   bool        `gorm:"default:true" json:"is_active"` // if the variant is active
 
 	// Relationships
 	Images         []ProductImage        `gorm:"foreignKey:ProductVariantID" json:"images"`
