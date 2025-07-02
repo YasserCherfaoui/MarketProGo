@@ -44,7 +44,7 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 		Preload("Specifications")
 
 	// Use a subquery for filtering to handle variants correctly
-	subQuery := h.db.Table("products").Select("DISTINCT products.id")
+	subQuery := h.db.Model(&models.Product{}).Select("DISTINCT products.id")
 
 	// Apply filters that require joins
 	requiresVariantJoin := sku != "" || barcode != "" || minPrice != "" || maxPrice != "" || sortByPrice != ""
