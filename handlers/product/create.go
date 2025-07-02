@@ -15,6 +15,7 @@ type ProductData struct {
 	Description    string                 `json:"description"`
 	IsActive       bool                   `json:"is_active"`
 	IsFeatured     bool                   `json:"is_featured"`
+	BrandID        *uint                  `json:"brand_id"`
 	CategoryIDs    []uint                 `json:"category_ids"`
 	Tags           []string               `json:"tags"`
 	Images         []ImageData            `json:"images"`
@@ -73,6 +74,7 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 		Description: data.Description,
 		IsActive:    data.IsActive,
 		IsFeatured:  data.IsFeatured,
+		BrandID:     data.BrandID,
 	}
 	if err := tx.Create(&product).Error; err != nil {
 		tx.Rollback()
@@ -226,7 +228,7 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 	}
 
 	// Preload all associations for the response
-	if err := h.db.Preload("Categories").Preload("Tags").Preload("Images").Preload("Options.Values").Preload("Variants.Images").Preload("Variants.OptionValues").Preload("Specifications").First(&product, product.ID).Error; err != nil {
+	if err := h.db.Preload("Brand").Preload("Categories").Preload("Tags").Preload("Images").Preload("Options.Values").Preload("Variants.Images").Preload("Variants.OptionValues").Preload("Specifications").First(&product, product.ID).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "product/create", "Failed to preload product data for response")
 		return
 	}

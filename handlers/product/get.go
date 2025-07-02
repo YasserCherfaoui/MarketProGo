@@ -11,6 +11,7 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 
 	var product models.Product
 	err := h.db.
+		Preload("Brand").
 		Preload("Categories").
 		Preload("Tags").
 		Preload("Images").
@@ -25,7 +26,10 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 		return
 	}
 
-	// Add Appwrite URLs to product images
+	// Add Appwrite URLs to product and brand images
+	if product.Brand != nil {
+		product.Brand.Image = h.appwriteService.GetFileURL(product.Brand.Image)
+	}
 	for i := range product.Images {
 		product.Images[i].URL = h.appwriteService.GetFileURL(product.Images[i].URL)
 	}

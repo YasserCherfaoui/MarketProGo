@@ -28,6 +28,7 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	maxPrice := c.Query("max_price")
 	categoryID := c.Query("category_id")
 	tag := c.Query("tag")
+	brandSlug := c.Query("brand_slug")
 	priceType := c.DefaultQuery("price_type", "customer") // customer or business
 	sortByPrice := c.Query("sort_by_price")               // asc or desc
 
@@ -35,6 +36,7 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 
 	// Base query with all preloads
 	db := h.db.Model(&models.Product{}).
+		Preload("Brand").
 		Preload("Categories").
 		Preload("Tags").
 		Preload("Images").
@@ -58,6 +60,9 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 		subQuery = subQuery.Joins("JOIN product_tags ON product_tags.product_id = products.id").
 			Joins("JOIN tags ON tags.id = product_tags.tag_id")
 	}
+	if brandSlug != "" {
+		subQuery = subQuery.Joins("JOIN brands ON brands.id = products.brand_id")
+	}
 
 	// Apply filtering conditions
 	if name != "" {
@@ -74,6 +79,9 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	}
 	if tag != "" {
 		subQuery = subQuery.Where("tags.name ILIKE ?", "%"+tag+"%")
+	}
+	if brandSlug != "" {
+		subQuery = subQuery.Where("brands.slug = ?", brandSlug)
 	}
 
 	// Variant-specific filters
@@ -133,8 +141,11 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 		}
 	}
 
-	// Add Appwrite URLs to product images
+	// Add Appwrite URLs to product and brand images
 	for i := range products {
+		if products[i].Brand != nil {
+			products[i].Brand.Image = h.appwriteService.GetFileURL(products[i].Brand.Image)
+		}
 		for j := range products[i].Images {
 			products[i].Images[j].URL = h.appwriteService.GetFileURL(products[i].Images[j].URL)
 		}

@@ -18,6 +18,7 @@ type UpdateProductData struct {
 	Description            *string                   `json:"description"`
 	IsActive               *bool                     `json:"is_active"`
 	IsFeatured             *bool                     `json:"is_featured"`
+	BrandID                *uint                     `json:"brand_id"`
 	CategoryIDs            []uint                    `json:"category_ids"`
 	Tags                   []string                  `json:"tags"`
 	ImagesToAdd            []ImageData               `json:"images_to_add"`
@@ -320,6 +321,9 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 		if data.IsFeatured != nil {
 			product.IsFeatured = *data.IsFeatured
 		}
+		if data.BrandID != nil {
+			product.BrandID = data.BrandID
+		}
 
 		// Replace Categories
 		if data.CategoryIDs != nil {
@@ -426,7 +430,7 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 	}
 
 	// Re-fetch the product with all associations for the response
-	h.db.Preload("Categories").Preload("Tags").Preload("Images").Preload("Variants.Images").Preload("Options.Values").Preload("Specifications").First(&product, productID)
+	h.db.Preload("Brand").Preload("Categories").Preload("Tags").Preload("Images").Preload("Variants.Images").Preload("Options.Values").Preload("Specifications").First(&product, productID)
 
 	response.GenerateSuccessResponse(c, "Product updated successfully", product)
 }

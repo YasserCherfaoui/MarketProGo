@@ -13,8 +13,10 @@ type Product struct {
 	Description string `json:"description"`
 	IsActive    bool   `gorm:"default:true" json:"is_active"`
 	IsFeatured  bool   `gorm:"default:false" json:"is_featured"`
+	BrandID     *uint  `json:"brand_id"`
 
 	// Relationships
+	Brand          *Brand                 `json:"brand" gorm:"foreignKey:BrandID"`
 	Categories     []*Category            `gorm:"many2many:product_categories;" json:"categories"`
 	Tags           []*Tag                 `gorm:"many2many:product_tags;" json:"tags"`
 	Images         []ProductImage         `gorm:"foreignKey:ProductID" json:"images"`
@@ -128,4 +130,18 @@ type ProductSpecification struct {
 	Name      string  `gorm:"not null" json:"name"`
 	Value     string  `gorm:"not null" json:"value"`
 	Unit      string  `json:"unit"`
+}
+
+// StockMovement tracks all inventory movements for audit purposes
+type StockMovement struct {
+	gorm.Model
+	InventoryItemID uint          `json:"inventory_item_id"`
+	InventoryItem   InventoryItem `json:"inventory_item"`
+	MovementType    string        `gorm:"not null" json:"movement_type"` // adjustment_in, adjustment_out, transfer_in, transfer_out, sold, returned
+	Quantity        int           `gorm:"not null" json:"quantity"`
+	Reason          string        `json:"reason"`
+	Notes           string        `json:"notes"`
+	Reference       string        `json:"reference"` // Order ID, Transfer ID, etc.
+	UserID          *uint         `json:"user_id"`
+	User            *User         `json:"user,omitempty"`
 }

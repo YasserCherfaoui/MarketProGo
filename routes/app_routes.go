@@ -6,6 +6,7 @@ import (
 	"github.com/YasserCherfaoui/MarketProGo/aw"
 	"github.com/YasserCherfaoui/MarketProGo/gcs"
 	"github.com/YasserCherfaoui/MarketProGo/handlers/auth"
+	"github.com/YasserCherfaoui/MarketProGo/handlers/inventory"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -18,6 +19,8 @@ func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService, appwriteSe
 	})
 	router := r.Group("/api/v1")
 	authHandler := auth.NewAuthHandler(db)
+	inventoryHandler := inventory.NewInventoryHandler(db, gcsService, appwriteService)
+
 	AuthRoutes(router, authHandler)
 	CategoryRoutes(router, db, gcsService, appwriteService)
 	BrandRoutes(router, db, gcsService, appwriteService)
@@ -26,5 +29,6 @@ func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService, appwriteSe
 	CarouselRoutes(router, db, gcsService, appwriteService)
 	CartRoutes(router, db)
 	OrderRoutes(router, db)
+	InventoryRoutes(router, inventoryHandler)
 	router.GET("/file/preview/:fileId", fileHandler.ProxyFilePreview)
 }
