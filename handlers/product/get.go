@@ -18,6 +18,8 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 		Preload("Options.Values").
 		Preload("Variants.Images").
 		Preload("Variants.OptionValues").
+		Preload("Variants.InventoryItems").
+		Preload("Variants.InventoryItems.Warehouse").
 		Preload("Specifications").
 		First(&product, "id = ?", productID).Error
 
