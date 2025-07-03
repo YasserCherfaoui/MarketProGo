@@ -25,39 +25,46 @@ func InventoryRoutes(r *gin.RouterGroup, inventoryHandler *inventory.InventoryHa
 		warehouseGroup.DELETE("/:id", inventoryHandler.DeleteWarehouse)
 	}
 
+	// Product inventory overview route
+	inventoryGroup.GET("/products", inventoryHandler.GetProductInventoryOverview)
+
 	// Stock management routes
 	stockGroup := inventoryGroup.Group("/stock")
 	{
 		stockGroup.GET("", inventoryHandler.GetStockLevels)
 		stockGroup.POST("/adjust", inventoryHandler.AdjustStock)
+		stockGroup.GET("/by-product/:product_variant_id", inventoryHandler.GetMultiWarehouseStock)
 		// stockGroup.POST("/bulk-adjust", inventoryHandler.BulkAdjustStock)
 		// stockGroup.POST("/transfer", inventoryHandler.TransferStock)
 		// stockGroup.POST("/reserve", inventoryHandler.ReserveStock)
 		// stockGroup.DELETE("/reserve/:id", inventoryHandler.ReleaseReservation)
 	}
 
-	// Stock movement and audit routes
-	// movementGroup := inventoryGroup.Group("/movements")
-	// {
-	// 	movementGroup.GET("", inventoryHandler.GetStockMovements)
-	// 	movementGroup.GET("/:id", inventoryHandler.GetStockMovement)
-	// }
+	// Batch tracking route
+	inventoryGroup.GET("/batches", inventoryHandler.GetInventoryBatches)
 
-	// Reports and analytics routes
+	// Stock movement and audit routes
+	movementGroup := inventoryGroup.Group("/movements")
+	{
+		movementGroup.GET("", inventoryHandler.GetStockMovements)
+		movementGroup.GET("/:id", inventoryHandler.GetStockMovement)
+	}
+
+	// Alerts and notifications routes
+	alertsGroup := inventoryGroup.Group("/alerts")
+	{
+		alertsGroup.GET("", inventoryHandler.GetStockAlerts)
+		// alertsGroup.POST("", inventoryHandler.CreateStockAlert)
+		// alertsGroup.PUT("/:id", inventoryHandler.UpdateStockAlert)
+		// alertsGroup.DELETE("/:id", inventoryHandler.DeleteStockAlert)
+	}
+
+	// Reports and analytics routes (keeping commented for future implementation)
 	// reportsGroup := inventoryGroup.Group("/reports")
 	// {
 	// 	reportsGroup.GET("/stock-levels", inventoryHandler.GetStockLevelReport)
 	// 	reportsGroup.GET("/low-stock", inventoryHandler.GetLowStockReport)
 	// 	reportsGroup.GET("/movements", inventoryHandler.GetMovementReport)
 	// 	reportsGroup.GET("/valuation", inventoryHandler.GetInventoryValuation)
-	// }
-
-	// Alerts and notifications routes
-	// alertsGroup := inventoryGroup.Group("/alerts")
-	// {
-	// 	alertsGroup.GET("", inventoryHandler.GetStockAlerts)
-	// 	alertsGroup.POST("", inventoryHandler.CreateStockAlert)
-	// 	alertsGroup.PUT("/:id", inventoryHandler.UpdateStockAlert)
-	// 	alertsGroup.DELETE("/:id", inventoryHandler.DeleteStockAlert)
 	// }
 }

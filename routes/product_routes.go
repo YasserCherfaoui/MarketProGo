@@ -15,6 +15,14 @@ func ProductRoutes(router *gin.RouterGroup, db *gorm.DB, gcsService *gcs.GCServi
 
 	productRouter.GET("", productHandler.GetAllProducts)
 	productRouter.GET("/:id", productHandler.GetProduct)
+
+	// Product variants endpoint - requires authentication for stock management
+	productVariantRouter := router.Group("/product-variants")
+	productVariantRouter.Use(middlewares.AuthMiddleware())
+	{
+		productVariantRouter.GET("", productHandler.GetProductVariants)
+	}
+
 	productRouter.Use(middlewares.AuthMiddleware())
 	{
 		productRouter.POST("", productHandler.CreateProduct)
