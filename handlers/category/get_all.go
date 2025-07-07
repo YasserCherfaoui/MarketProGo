@@ -8,7 +8,7 @@ import (
 
 func (h *CategoryHandler) GetAllCategories(c *gin.Context) {
 	var categories []models.Category
-	if err := h.db.Preload("Parent").Preload("Children").Preload("Products").Find(&categories).Error; err != nil {
+	if err := h.db.Preload("Parent").Preload("Children").Preload("Products").Order("name ASC").Find(&categories).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "category/get_all", "Failed to get all categories")
 		return
 	}

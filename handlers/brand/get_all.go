@@ -8,7 +8,7 @@ import (
 
 func (h *BrandHandler) GetAllBrands(c *gin.Context) {
 	var brands []models.Brand
-	if err := h.db.Find(&brands).Error; err != nil {
+	if err := h.db.Order("name ASC").Find(&brands).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "brand/get_all", "Failed to get all brands")
 		return
 	}

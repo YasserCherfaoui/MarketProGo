@@ -131,7 +131,7 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 
 	// Get the IDs for the current page
 	var productIDs []uint
-	subQuery.Offset((page-1)*pageSize).Limit(pageSize).Pluck("id", &productIDs)
+	subQuery.Order("products.name ASC").Offset((page-1)*pageSize).Limit(pageSize).Pluck("id", &productIDs)
 
 	// Fetch the full product data for the paginated IDs
 	if len(productIDs) > 0 {
