@@ -15,6 +15,7 @@ type ProductData struct {
 	Description    string                 `json:"description"`
 	IsActive       bool                   `json:"is_active"`
 	IsFeatured     bool                   `json:"is_featured"`
+	IsVAT          bool                   `json:"is_vat"`
 	BrandID        *uint                  `json:"brand_id"`
 	CategoryIDs    []uint                 `json:"category_ids"`
 	Tags           []string               `json:"tags"`
@@ -74,6 +75,7 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 		Description: data.Description,
 		IsActive:    data.IsActive,
 		IsFeatured:  data.IsFeatured,
+		IsVAT:       data.IsVAT,
 		BrandID:     data.BrandID,
 	}
 	if err := tx.Create(&product).Error; err != nil {

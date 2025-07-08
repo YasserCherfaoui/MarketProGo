@@ -13,6 +13,7 @@ type Product struct {
 	Description string `json:"description"`
 	IsActive    bool   `gorm:"default:true" json:"is_active"`
 	IsFeatured  bool   `gorm:"default:false" json:"is_featured"`
+	IsVAT       bool   `gorm:"default:false" json:"is_vat"`
 	BrandID     *uint  `json:"brand_id"`
 
 	// Relationships

@@ -18,6 +18,7 @@ type UpdateProductData struct {
 	Description            *string                   `json:"description"`
 	IsActive               *bool                     `json:"is_active"`
 	IsFeatured             *bool                     `json:"is_featured"`
+	IsVAT                  *bool                     `json:"is_vat"`
 	BrandID                *uint                     `json:"brand_id"`
 	CategoryIDs            []uint                    `json:"category_ids"`
 	Tags                   []string                  `json:"tags"`
@@ -320,6 +321,9 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 		}
 		if data.IsFeatured != nil {
 			product.IsFeatured = *data.IsFeatured
+		}
+		if data.IsVAT != nil {
+			product.IsVAT = *data.IsVAT
 		}
 		if data.BrandID != nil {
 			product.BrandID = data.BrandID
