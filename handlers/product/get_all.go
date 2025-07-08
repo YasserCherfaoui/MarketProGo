@@ -129,16 +129,20 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	var total int64
 	h.db.Table("(?) as sub", subQuery).Count(&total)
 
-	// Get the IDs for the current page
-	var productIDs []uint
-	subQuery.Order("products.name ASC").Offset((page-1)*pageSize).Limit(pageSize).Pluck("id", &productIDs)
+	// Apply the ordering to the main query
+	db = db.Where("products.id IN (?)", subQuery)
 
-	// Fetch the full product data for the paginated IDs
-	if len(productIDs) > 0 {
-		if err := db.Where("id IN ?", productIDs).Find(&products).Error; err != nil {
-			response.GenerateInternalServerErrorResponse(c, "product/get_all", err.Error())
-			return
-		}
+	// Apply sorting
+	if sortByPrice != "" && (sortByPrice == "asc" || sortByPrice == "desc") {
+		db = db.Order(fmt.Sprintf("%s %s", priceField, sortByPrice))
+	} else {
+		db = db.Order("products.name ASC")
+	}
+
+	// Apply pagination
+	if err := db.Offset((page - 1) * pageSize).Limit(pageSize).Find(&products).Error; err != nil {
+		response.GenerateInternalServerErrorResponse(c, "product/get_all", err.Error())
+		return
 	}
 
 	// Add Appwrite URLs to product and brand images
