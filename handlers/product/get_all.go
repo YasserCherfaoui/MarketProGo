@@ -24,6 +24,7 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	barcode := c.Query("barcode")
 	isActive := c.Query("is_active")
 	isFeatured := c.Query("is_featured")
+	isVAT := c.Query("is_vat")
 	minPrice := c.Query("min_price")
 	maxPrice := c.Query("max_price")
 	categoryID := c.Query("category_id")
@@ -73,6 +74,9 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	}
 	if isFeatured != "" {
 		subQuery = subQuery.Where("products.is_featured = ?", isFeatured == "true")
+	}
+	if isVAT != "" {
+		subQuery = subQuery.Where("products.is_vat = ?", isVAT == "true")
 	}
 	if categoryID != "" {
 		subQuery = subQuery.Where("product_categories.category_id = ?", categoryID)
