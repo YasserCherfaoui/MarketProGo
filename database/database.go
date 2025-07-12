@@ -75,6 +75,7 @@ func ConnectDB() (*gorm.DB, error) {
 			&models.CartItem{},
 			&models.Brand{},
 			&models.StockMovement{},
+			&models.Promotion{},
 		); err != nil {
 			return nil, err
 		}

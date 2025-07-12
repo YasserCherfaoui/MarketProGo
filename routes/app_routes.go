@@ -7,6 +7,7 @@ import (
 	"github.com/YasserCherfaoui/MarketProGo/gcs"
 	"github.com/YasserCherfaoui/MarketProGo/handlers/auth"
 	"github.com/YasserCherfaoui/MarketProGo/handlers/inventory"
+	"github.com/YasserCherfaoui/MarketProGo/handlers/promotion"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -30,5 +31,9 @@ func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService, appwriteSe
 	CartRoutes(router, db)
 	OrderRoutes(router, db)
 	InventoryRoutes(router, inventoryHandler)
+
+	// Register Promotion routes
+	promotionHandler := promotion.NewPromotionHandler(db, gcsService, appwriteService)
+	RegisterPromotionRoutes(router, promotionHandler)
 	router.GET("/file/preview/:fileId", fileHandler.ProxyFilePreview)
 }
