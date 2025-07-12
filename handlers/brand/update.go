@@ -1,6 +1,7 @@
 package brand
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
@@ -20,6 +21,15 @@ func (h *BrandHandler) UpdateBrand(c *gin.Context) {
 	name := c.PostForm("name")
 	isDisplayedStr := c.DefaultPostForm("is_displayed", "true")
 	isDisplayed := isDisplayedStr == "true" || isDisplayedStr == "1"
+
+	// Handle parent brand update
+	if pid := c.PostForm("parent_id"); pid != "" {
+		var id uint
+		_, err := fmt.Sscanf(pid, "%d", &id)
+		if err == nil {
+			brand.ParentID = &id
+		}
+	}
 
 	// Handle image replacement
 	fileHeader, err := c.FormFile("image")

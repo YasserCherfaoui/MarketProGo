@@ -9,7 +9,7 @@ import (
 func (h *BrandHandler) GetBrand(c *gin.Context) {
 	id := c.Param("id")
 	var brand models.Brand
-	if err := h.db.Where("id = ?", id).First(&brand).Error; err != nil {
+	if err := h.db.Preload("Parent").Preload("Children").Where("id = ?", id).First(&brand).Error; err != nil {
 		response.GenerateNotFoundResponse(c, "brand/get", "Brand not found")
 		return
 	}

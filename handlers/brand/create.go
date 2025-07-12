@@ -14,6 +14,16 @@ func (h *BrandHandler) CreateBrand(c *gin.Context) {
 	isDisplayedStr := c.DefaultPostForm("is_displayed", "true")
 	isDisplayed := isDisplayedStr == "true" || isDisplayedStr == "1"
 
+	// Handle parent brand
+	var parentID *uint
+	if pid := c.PostForm("parent_id"); pid != "" {
+		var id uint
+		_, err := fmt.Sscanf(pid, "%d", &id)
+		if err == nil {
+			parentID = &id
+		}
+	}
+
 	// Handle image file
 	imageURL := ""
 	fileHeader, err := c.FormFile("image")
@@ -48,6 +58,7 @@ func (h *BrandHandler) CreateBrand(c *gin.Context) {
 		Image:       imageURL,
 		Slug:        slug,
 		IsDisplayed: isDisplayed,
+		ParentID:    parentID,
 	}
 
 	if err := tx.Create(&brand).Error; err != nil {
