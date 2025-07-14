@@ -20,6 +20,8 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 	if err := h.db.Preload("Items.ProductVariant.Product").
 		Preload("Items.ProductVariant.Product.Images").
 		Preload("Items.ProductVariant.OptionValues").
+		Preload("Items.ProductVariant.PriceTiers").
+		Preload("Items.ProductVariant.InventoryItems").
 		Preload("Items.Product"). // Legacy support
 		Where("user_id = ?", uid).First(&cart).Error; err != nil {
 		// If not found, create a new cart

@@ -45,6 +45,7 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 		Preload("Variants.Images").
 		Preload("Variants.OptionValues").
 		Preload("Variants.PriceTiers").
+		Preload("Variants.InventoryItems").
 		Preload("Specifications")
 
 	// Use a subquery for filtering to handle variants correctly
