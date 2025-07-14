@@ -1,6 +1,8 @@
 package cart
 
 import (
+	"strconv"
+
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/utils/response"
 	"github.com/gin-gonic/gin"
@@ -50,12 +52,38 @@ func (h *CartHandler) AddItem(c *gin.Context) {
 		return
 	}
 
-	// Calculate unit price based on price type
+	// Check min_quantity
+	if req.Quantity < variant.MinQuantity {
+		response.GenerateBadRequestResponse(c, "cart/add_item", "Minimum quantity for this variant is "+strconv.Itoa(variant.MinQuantity))
+		return
+	}
+
+	// Dynamic pricing: fetch price tiers
+	h.db.Model(&variant).Preload("PriceTiers").First(&variant)
 	var unitPrice float64
-	if req.PriceType == "b2b" {
-		unitPrice = variant.B2BPrice
-	} else {
+	if len(variant.PriceTiers) > 0 {
+		// Sort tiers by MinQuantity descending
+		tiers := variant.PriceTiers
+		for i := range tiers {
+			for j := i + 1; j < len(tiers); j++ {
+				if tiers[j].MinQuantity > tiers[i].MinQuantity {
+					tiers[i], tiers[j] = tiers[j], tiers[i]
+				}
+			}
+		}
 		unitPrice = variant.BasePrice
+		for _, tier := range tiers {
+			if req.Quantity >= tier.MinQuantity {
+				unitPrice = tier.Price
+				break
+			}
+		}
+	} else {
+		if req.PriceType == "b2b" {
+			unitPrice = variant.B2BPrice
+		} else {
+			unitPrice = variant.BasePrice
+		}
 	}
 
 	// Get or create cart

@@ -50,7 +50,8 @@ func (h *ProductHandler) GetProductVariants(c *gin.Context) {
 		Preload("Images").
 		Preload("OptionValues").
 		Preload("InventoryItems").
-		Preload("InventoryItems.Warehouse")
+		Preload("InventoryItems.Warehouse").
+		Preload("PriceTiers")
 
 	// Apply filters
 	if productIDStr != "" {

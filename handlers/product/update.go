@@ -254,22 +254,36 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 		// Add
 		for _, varData := range data.VariantsToAdd {
 			variant := models.ProductVariant{
-				ProductID:  product.ID,
-				Name:       varData.Name,
-				SKU:        varData.SKU,
-				Barcode:    varData.Barcode,
-				BasePrice:  varData.BasePrice,
-				B2BPrice:   varData.B2BPrice,
-				CostPrice:  varData.CostPrice,
-				Weight:     varData.Weight,
-				WeightUnit: varData.WeightUnit,
-				Dimensions: &varData.Dimensions,
-				IsActive:   varData.IsActive,
+				ProductID:   product.ID,
+				Name:        varData.Name,
+				SKU:         varData.SKU,
+				Barcode:     varData.Barcode,
+				BasePrice:   varData.BasePrice,
+				B2BPrice:    varData.B2BPrice,
+				CostPrice:   varData.CostPrice,
+				Weight:      varData.Weight,
+				WeightUnit:  varData.WeightUnit,
+				Dimensions:  &varData.Dimensions,
+				IsActive:    varData.IsActive,
+				MinQuantity: varData.MinQuantity,
 			}
 			if err := tx.Create(&variant).Error; err != nil {
 				tx.Rollback()
 				response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to add variant")
 				return
+			}
+			// Add price tiers for this variant
+			for _, tier := range varData.PriceTiers {
+				priceTier := models.ProductVariantPriceTier{
+					ProductVariantID: variant.ID,
+					MinQuantity:      tier.MinQuantity,
+					Price:            tier.Price,
+				}
+				if err := tx.Create(&priceTier).Error; err != nil {
+					tx.Rollback()
+					response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to add price tier for variant")
+					return
+				}
 			}
 			// Add images for variant
 			for _, imgData := range varData.Images {
@@ -411,10 +425,29 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 			if varUpdateData.IsActive != nil {
 				variant.IsActive = *varUpdateData.IsActive
 			}
+			if varUpdateData.MinQuantity != nil {
+				variant.MinQuantity = *varUpdateData.MinQuantity
+			}
 			if err := tx.Save(&variant).Error; err != nil {
 				tx.Rollback()
 				response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to update variant")
 				return
+			}
+			// Update price tiers for this variant
+			if varUpdateData.PriceTiers != nil {
+				tx.Where("product_variant_id = ?", variant.ID).Delete(&models.ProductVariantPriceTier{})
+				for _, tier := range *varUpdateData.PriceTiers {
+					priceTier := models.ProductVariantPriceTier{
+						ProductVariantID: variant.ID,
+						MinQuantity:      tier.MinQuantity,
+						Price:            tier.Price,
+					}
+					if err := tx.Create(&priceTier).Error; err != nil {
+						tx.Rollback()
+						response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to update price tiers for variant")
+						return
+					}
+				}
 			}
 		}
 		// NOTE: A more complex implementation would be needed to add/remove/update options

@@ -44,6 +44,11 @@ type OptionDeleteData struct {
 	ID uint `json:"id"`
 }
 
+type PriceTierData struct {
+	MinQuantity int     `json:"min_quantity"`
+	Price       float64 `json:"price"`
+}
+
 type VariantData struct {
 	Name         string            `json:"name"`
 	SKU          string            `json:"sku"`
@@ -57,6 +62,8 @@ type VariantData struct {
 	IsActive     bool              `json:"is_active"`
 	Images       []ImageData       `json:"images"`
 	OptionValues []string          `json:"option_values"`
+	MinQuantity  int               `json:"min_quantity"`
+	PriceTiers   []PriceTierData   `json:"price_tiers"`
 }
 
 type VariantUpdateData struct {
@@ -75,4 +82,6 @@ type VariantUpdateData struct {
 	ImagesToUpdate []ImageUpdateData  `json:"images_to_update"`
 	ImagesToDelete []uint             `json:"images_to_delete"`
 	OptionValues   *[]string          `json:"option_values"`
+	MinQuantity    *int               `json:"min_quantity"`
+	PriceTiers     *[]PriceTierData   `json:"price_tiers"`
 }

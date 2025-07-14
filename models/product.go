@@ -17,35 +17,45 @@ type Product struct {
 	BrandID     *uint  `json:"brand_id"`
 
 	// Relationships
-	Brand          *Brand                 `json:"brand" gorm:"foreignKey:BrandID"`
-	Categories     []*Category            `gorm:"many2many:product_categories;" json:"categories"`
-	Tags           []*Tag                 `gorm:"many2many:product_tags;" json:"tags"`
-	Images         []ProductImage         `gorm:"foreignKey:ProductID" json:"images"`
-	Options        []ProductOption        `gorm:"foreignKey:ProductID" json:"options"`
-	Variants       []ProductVariant       `gorm:"foreignKey:ProductID" json:"variants"`
-	Specifications []ProductSpecification `json:"specifications"`
+	Brand          *Brand                 `json:"brand,omitempty" gorm:"foreignKey:BrandID"`
+	Categories     []*Category            `gorm:"many2many:product_categories;" json:"categories,omitempty"`
+	Tags           []*Tag                 `gorm:"many2many:product_tags;" json:"tags,omitempty"`
+	Images         []ProductImage         `gorm:"foreignKey:ProductID" json:"images,omitempty"`
+	Options        []ProductOption        `gorm:"foreignKey:ProductID" json:"options,omitempty"`
+	Variants       []ProductVariant       `gorm:"foreignKey:ProductID" json:"variants,omitempty"`
+	Specifications []ProductSpecification `json:"specifications,omitempty"`
 }
 
 // ProductVariant represents a specific version of a product, like size or color.
 type ProductVariant struct {
 	gorm.Model
-	ProductID  uint        `json:"product_id"`
-	Product    Product     `json:"product"`
-	Name       string      `gorm:"not null" json:"name"` // e.g., "1kg", "500g", "250g"
-	SKU        string      `gorm:"uniqueIndex;not null" json:"sku"`
-	Barcode    string      `json:"barcode"`
-	BasePrice  float64     `gorm:"not null" json:"base_price"`    // price for clients
-	B2BPrice   float64     `json:"b2b_price"`                     // price for b2b customers
-	CostPrice  float64     `json:"cost_price"`                    // cost price for the product
-	Weight     float64     `json:"weight"`                        // weight of the product
-	WeightUnit string      `json:"weight_unit"`                   // unit of weight
-	Dimensions *Dimensions `gorm:"embedded" json:"dimensions"`    // dimensions of the product
-	IsActive   bool        `gorm:"default:true" json:"is_active"` // if the variant is active
+	ProductID   uint        `json:"product_id"`
+	Product     Product     `json:"product"`
+	Name        string      `gorm:"not null" json:"name"` // e.g., "1kg", "500g", "250g"
+	SKU         string      `gorm:"uniqueIndex;not null" json:"sku"`
+	Barcode     string      `json:"barcode"`
+	BasePrice   float64     `gorm:"not null" json:"base_price"`    // price for clients
+	B2BPrice    float64     `json:"b2b_price"`                     // price for b2b customers
+	CostPrice   float64     `json:"cost_price"`                    // cost price for the product
+	Weight      float64     `json:"weight"`                        // weight of the product
+	WeightUnit  string      `json:"weight_unit"`                   // unit of weight
+	Dimensions  *Dimensions `gorm:"embedded" json:"dimensions"`    // dimensions of the product
+	IsActive    bool        `gorm:"default:true" json:"is_active"` // if the variant is active
+	MinQuantity int         `gorm:"default:1" json:"min_quantity"` // minimum quantity to buy
 
 	// Relationships
-	Images         []ProductImage        `gorm:"foreignKey:ProductVariantID" json:"images"`
-	OptionValues   []*ProductOptionValue `gorm:"many2many:variant_option_values;" json:"option_values"`
-	InventoryItems []InventoryItem       `json:"inventory_items"`
+	Images         []ProductImage            `gorm:"foreignKey:ProductVariantID" json:"images"`
+	OptionValues   []*ProductOptionValue     `gorm:"many2many:variant_option_values;" json:"option_values"`
+	InventoryItems []InventoryItem           `json:"inventory_items"`
+	PriceTiers     []ProductVariantPriceTier `gorm:"foreignKey:ProductVariantID" json:"price_tiers"`
+}
+
+// New: ProductVariantPriceTier represents a price break for a variant based on quantity.
+type ProductVariantPriceTier struct {
+	gorm.Model
+	ProductVariantID uint    `json:"product_variant_id"`
+	MinQuantity      int     `gorm:"not null" json:"min_quantity"` // minimum quantity for this price tier
+	Price            float64 `gorm:"not null" json:"price"`
 }
 
 // ProductOption defines a configurable property for a product, like "Flavor" or "Size".

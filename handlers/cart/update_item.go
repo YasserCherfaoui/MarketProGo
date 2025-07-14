@@ -45,8 +45,33 @@ func (h *CartHandler) UpdateItem(c *gin.Context) {
 		return
 	}
 
-	// Update quantity and recalculate total price
+	// Fetch variant for min_quantity and price tiers
+	var variant models.ProductVariant
+	h.db.Model(&models.ProductVariant{}).Preload("PriceTiers").First(&variant, item.ProductVariantID)
+	if req.Quantity < variant.MinQuantity {
+		response.GenerateBadRequestResponse(c, "cart/update_item", "Minimum quantity for this variant is "+strconv.Itoa(variant.MinQuantity))
+		return
+	}
+	// Dynamic pricing: select price tier
+	unitPrice := variant.BasePrice
+	if len(variant.PriceTiers) > 0 {
+		tiers := variant.PriceTiers
+		for i := range tiers {
+			for j := i + 1; j < len(tiers); j++ {
+				if tiers[j].MinQuantity > tiers[i].MinQuantity {
+					tiers[i], tiers[j] = tiers[j], tiers[i]
+				}
+			}
+		}
+		for _, tier := range tiers {
+			if req.Quantity >= tier.MinQuantity {
+				unitPrice = tier.Price
+				break
+			}
+		}
+	}
 	item.Quantity = req.Quantity
+	item.UnitPrice = unitPrice
 	item.TotalPrice = float64(item.Quantity) * item.UnitPrice
 
 	h.db.Save(&item)
