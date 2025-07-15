@@ -64,7 +64,20 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 			Joins("JOIN tags ON tags.id = product_tags.tag_id")
 	}
 	if brandSlug != "" {
-		subQuery = subQuery.Joins("JOIN brands ON brands.id = products.brand_id")
+		// Find the brand by slug
+		var brand models.Brand
+		if err := h.db.Preload("Children").Where("slug = ?", brandSlug).First(&brand).Error; err != nil {
+			response.GenerateInternalServerErrorResponse(c, "product/get_all", err.Error())
+			return
+		}
+		brandIDs := []uint{brand.ID}
+		// If brand has children, include their IDs
+		if len(brand.Children) > 0 {
+			for _, child := range brand.Children {
+				brandIDs = append(brandIDs, child.ID)
+			}
+		}
+		subQuery = subQuery.Where("products.brand_id IN ?", brandIDs)
 	}
 
 	// Apply filtering conditions
@@ -85,9 +98,6 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	}
 	if tag != "" {
 		subQuery = subQuery.Where("tags.name ILIKE ?", "%"+tag+"%")
-	}
-	if brandSlug != "" {
-		subQuery = subQuery.Where("brands.slug = ?", brandSlug)
 	}
 
 	// Variant-specific filters

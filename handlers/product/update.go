@@ -449,6 +449,84 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 					}
 				}
 			}
+			// --- Option Values CRUD ---
+			if varUpdateData.OptionValuesToAdd != nil {
+				var optionValues []*models.ProductOptionValue
+				for _, val := range *varUpdateData.OptionValuesToAdd {
+					var ov models.ProductOptionValue
+					if err := tx.Where("value = ?", val).First(&ov).Error; err == nil {
+						optionValues = append(optionValues, &ov)
+					}
+				}
+				if err := tx.Model(&variant).Association("OptionValues").Append(optionValues); err != nil {
+					tx.Rollback()
+					response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to add option values to variant")
+					return
+				}
+			}
+			if varUpdateData.OptionValuesToRemove != nil {
+				var optionValues []*models.ProductOptionValue
+				for _, val := range *varUpdateData.OptionValuesToRemove {
+					var ov models.ProductOptionValue
+					if err := tx.Where("value = ?", val).First(&ov).Error; err == nil {
+						optionValues = append(optionValues, &ov)
+					}
+				}
+				if err := tx.Model(&variant).Association("OptionValues").Delete(optionValues); err != nil {
+					tx.Rollback()
+					response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to remove option values from variant")
+					return
+				}
+			}
+			// --- Images CRUD ---
+			// Add new images
+			for _, imgData := range varUpdateData.ImagesToAdd {
+				fileID, ok := uploadedFileIDs[imgData.FileName]
+				if !ok {
+					tx.Rollback()
+					response.GenerateBadRequestResponse(c, "product/update", "Image file '"+imgData.FileName+"' for variant '"+variant.Name+"' not found in upload")
+					return
+				}
+				image := models.ProductImage{
+					ProductVariantID: &variant.ID,
+					URL:              fileID,
+					IsPrimary:        imgData.IsPrimary,
+					AltText:          imgData.AltText,
+				}
+				if err := tx.Create(&image).Error; err != nil {
+					tx.Rollback()
+					response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to add variant image")
+					return
+				}
+			}
+			// Update image metadata
+			for _, imgUpdate := range varUpdateData.ImagesToUpdate {
+				var img models.ProductImage
+				if err := tx.First(&img, imgUpdate.ID).Error; err != nil {
+					tx.Rollback()
+					response.GenerateBadRequestResponse(c, "product/update", "Image with ID "+strconv.Itoa(int(imgUpdate.ID))+" not found.")
+					return
+				}
+				if imgUpdate.IsPrimary != nil {
+					img.IsPrimary = *imgUpdate.IsPrimary
+				}
+				if imgUpdate.AltText != nil {
+					img.AltText = *imgUpdate.AltText
+				}
+				if err := tx.Save(&img).Error; err != nil {
+					tx.Rollback()
+					response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to update image metadata")
+					return
+				}
+			}
+			// Delete images
+			for _, imgID := range varUpdateData.ImagesToDelete {
+				if err := tx.Delete(&models.ProductImage{}, imgID).Error; err != nil {
+					tx.Rollback()
+					response.GenerateInternalServerErrorResponse(c, "product/update", "Failed to delete variant image")
+					return
+				}
+			}
 		}
 		// NOTE: A more complex implementation would be needed to add/remove/update options
 		// and associate new images with existing variants. This is a simplified version.

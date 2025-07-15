@@ -67,21 +67,22 @@ type VariantData struct {
 }
 
 type VariantUpdateData struct {
-	ID             uint               `json:"id"`
-	Name           *string            `json:"name"`
-	SKU            *string            `json:"sku"`
-	Barcode        *string            `json:"barcode"`
-	BasePrice      *float64           `json:"base_price"`
-	B2BPrice       *float64           `json:"b2b_price"`
-	CostPrice      *float64           `json:"cost_price"`
-	Weight         *float64           `json:"weight"`
-	WeightUnit     *string            `json:"weight_unit"`
-	Dimensions     *models.Dimensions `json:"dimensions"`
-	IsActive       *bool              `json:"is_active"`
-	ImagesToAdd    []ImageData        `json:"images_to_add"`
-	ImagesToUpdate []ImageUpdateData  `json:"images_to_update"`
-	ImagesToDelete []uint             `json:"images_to_delete"`
-	OptionValues   *[]string          `json:"option_values"`
-	MinQuantity    *int               `json:"min_quantity"`
-	PriceTiers     *[]PriceTierData   `json:"price_tiers"`
+	ID                   uint               `json:"id"`
+	Name                 *string            `json:"name"`
+	SKU                  *string            `json:"sku"`
+	Barcode              *string            `json:"barcode"`
+	BasePrice            *float64           `json:"base_price"`
+	B2BPrice             *float64           `json:"b2b_price"`
+	CostPrice            *float64           `json:"cost_price"`
+	Weight               *float64           `json:"weight"`
+	WeightUnit           *string            `json:"weight_unit"`
+	Dimensions           *models.Dimensions `json:"dimensions"`
+	IsActive             *bool              `json:"is_active"`
+	MinQuantity          *int               `json:"min_quantity"`
+	PriceTiers           *[]PriceTierData   `json:"price_tiers"`
+	OptionValuesToAdd    *[]string          `json:"option_values_to_add"`
+	OptionValuesToRemove *[]string          `json:"option_values_to_remove"`
+	ImagesToAdd          []ImageData        `json:"images_to_add"`
+	ImagesToUpdate       []ImageUpdateData  `json:"images_to_update"`
+	ImagesToDelete       []uint             `json:"images_to_delete"`
 }
