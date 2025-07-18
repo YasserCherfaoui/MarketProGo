@@ -42,5 +42,12 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 		}
 	}
 
+	// Add review data to product
+	err = h.reviewService.AddReviewDataToProduct(&product)
+	if err != nil {
+		// Log error but don't fail the request
+		// TODO: Add proper logging
+	}
+
 	response.GenerateSuccessResponse(c, "product/get", product)
 }

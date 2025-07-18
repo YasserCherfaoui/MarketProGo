@@ -24,6 +24,9 @@ type Product struct {
 	Options        []ProductOption        `gorm:"foreignKey:ProductID" json:"options,omitempty"`
 	Variants       []ProductVariant       `gorm:"foreignKey:ProductID" json:"variants,omitempty"`
 	Specifications []ProductSpecification `json:"specifications,omitempty"`
+
+	// Review integration (not stored in database)
+	RatingSummary interface{} `json:"rating_summary,omitempty" gorm:"-"`
 }
 
 // ProductVariant represents a specific version of a product, like size or color.
@@ -48,6 +51,9 @@ type ProductVariant struct {
 	OptionValues   []*ProductOptionValue     `gorm:"many2many:variant_option_values;" json:"option_values"`
 	InventoryItems []InventoryItem           `json:"inventory_items"`
 	PriceTiers     []ProductVariantPriceTier `gorm:"foreignKey:ProductVariantID" json:"price_tiers"`
+
+	// Review integration (not stored in database)
+	RatingSummary interface{} `json:"rating_summary,omitempty" gorm:"-"`
 }
 
 // New: ProductVariantPriceTier represents a price break for a variant based on quantity.

@@ -156,7 +156,8 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	}
 
 	// Apply pagination
-	if err := db.Offset((page - 1) * pageSize).Limit(pageSize).Find(&products).Error; err != nil {
+	var err error
+	if err = db.Offset((page - 1) * pageSize).Limit(pageSize).Find(&products).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "product/get_all", err.Error())
 		return
 	}
@@ -174,6 +175,13 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 				products[i].Variants[j].Images[k].URL = h.appwriteService.GetFileURL(products[i].Variants[j].Images[k].URL)
 			}
 		}
+	}
+
+	// Add review data to products
+	err = h.reviewService.AddReviewDataToProducts(products)
+	if err != nil {
+		// Log error but don't fail the request
+		// TODO: Add proper logging
 	}
 
 	resp := PaginatedResponse{
