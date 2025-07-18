@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
@@ -181,9 +182,9 @@ func createReviewIndexes(db *gorm.DB) error {
 func createReviewConstraints(db *gorm.DB) error {
 	// Check if we're using SQLite (for testing) or PostgreSQL (for production)
 	var dbType string
-	err := db.Raw("SELECT sqlite_version()").Scan(&dbType).Error
+	err := db.Raw("SELECT version()").Scan(&dbType).Error
 
-	if err == nil && dbType != "" {
+	if err != nil || !strings.Contains(strings.ToLower(dbType), "postgresql") {
 		// SQLite - constraints are handled by GORM tags, just create unique indexes
 		uniqueIndexes := []struct {
 			name string
@@ -277,9 +278,9 @@ func addReviewModerationLog(db *gorm.DB) error {
 
 	// Check if we're using SQLite (for testing) or PostgreSQL (for production)
 	var dbType string
-	err := db.Raw("SELECT sqlite_version()").Scan(&dbType).Error
+	err := db.Raw("SELECT version()").Scan(&dbType).Error
 
-	if err != nil {
+	if err == nil && strings.Contains(strings.ToLower(dbType), "postgresql") {
 		// PostgreSQL - create foreign key constraints
 		constraints := []struct {
 			name string
@@ -310,9 +311,9 @@ func addReviewModerationLog(db *gorm.DB) error {
 func optimizeReviewQueries(db *gorm.DB) error {
 	// Check if we're using SQLite (for testing) or PostgreSQL (for production)
 	var dbType string
-	err := db.Raw("SELECT sqlite_version()").Scan(&dbType).Error
+	err := db.Raw("SELECT version()").Scan(&dbType).Error
 
-	if err == nil && dbType != "" {
+	if err != nil || !strings.Contains(strings.ToLower(dbType), "postgresql") {
 		// SQLite - use CREATE VIEW instead of CREATE OR REPLACE VIEW
 		viewSQL := `
 			CREATE VIEW IF NOT EXISTS review_statistics AS
@@ -434,7 +435,7 @@ func RollbackMigration(db *gorm.DB, migrationName string) error {
 func rollbackReviewTables(db *gorm.DB) error {
 	// Check if we're using SQLite (for testing) or PostgreSQL (for production)
 	var dbType string
-	err := db.Raw("SELECT sqlite_version()").Scan(&dbType).Error
+	err := db.Raw("SELECT version()").Scan(&dbType).Error
 
 	tables := []string{
 		"review_moderation_logs",
@@ -447,7 +448,7 @@ func rollbackReviewTables(db *gorm.DB) error {
 
 	for _, table := range tables {
 		var dropSQL string
-		if err == nil && dbType != "" {
+		if err != nil || !strings.Contains(strings.ToLower(dbType), "postgresql") {
 			// SQLite - no CASCADE support
 			dropSQL = fmt.Sprintf("DROP TABLE IF EXISTS %s", table)
 		} else {
@@ -527,10 +528,10 @@ func rollbackReviewModerationLog(db *gorm.DB) error {
 
 	// Check if we're using SQLite (for testing) or PostgreSQL (for production)
 	var dbType string
-	err := db.Raw("SELECT sqlite_version()").Scan(&dbType).Error
+	err := db.Raw("SELECT version()").Scan(&dbType).Error
 
 	var dropSQL string
-	if err == nil && dbType != "" {
+	if err != nil || !strings.Contains(strings.ToLower(dbType), "postgresql") {
 		// SQLite - no CASCADE support
 		dropSQL = "DROP TABLE IF EXISTS review_moderation_logs"
 	} else {

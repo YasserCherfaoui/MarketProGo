@@ -17,7 +17,7 @@ Set these in Koyeb:
 PORT=8080
 GIN_MODE=release
 
-# Database
+# Database (PostgreSQL)
 DB_HOST=your-database-host
 DB_USER=your-database-user
 DB_PASSWORD=your-database-password
