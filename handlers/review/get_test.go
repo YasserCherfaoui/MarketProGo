@@ -55,6 +55,12 @@ func TestGetReview(t *testing.T) {
 		assert.Equal(t, "", userData["first_name"])
 		assert.Equal(t, "", userData["last_name"])
 		assert.Equal(t, "Anonymous", userData["name"]) // Default name when no first/last name
+		assert.Equal(t, user.Email, userData["email"])
+		assert.Equal(t, user.Phone, userData["phone"])
+		assert.Equal(t, user.Avatar, userData["avatar"])
+
+		// Check that moderation history is NOT included for regular users
+		assert.NotContains(t, data, "moderation_history")
 	})
 
 	t.Run("Error - Invalid review ID", func(t *testing.T) {
@@ -91,7 +97,7 @@ func TestGetReview(t *testing.T) {
 		assert.Equal(t, "REVIEW_NOT_FOUND", response["error"].(map[string]interface{})["code"])
 	})
 
-	t.Run("Error - Pending review not accessible", func(t *testing.T) {
+	t.Run("Error - Pending review not accessible for regular users", func(t *testing.T) {
 		// Create a pending review
 		pendingReview := createTestReview(t, db, user.ID, productVariant.ID, 3, "Pending", "Pending content")
 		pendingReview.Status = models.ReviewStatusPending
@@ -104,6 +110,48 @@ func TestGetReview(t *testing.T) {
 		handler.GetReview(c)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+
+	t.Run("Success - Admin can access pending review", func(t *testing.T) {
+		// Create a pending review
+		pendingReview := createTestReview(t, db, user.ID, productVariant.ID, 3, "Pending", "Pending content")
+		pendingReview.Status = models.ReviewStatusPending
+		db.Save(&pendingReview)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = gin.Params{{Key: "id", Value: strconv.FormatUint(uint64(pendingReview.ID), 10)}}
+
+		// Set admin user context
+		c.Set("user_type", models.Admin)
+
+		handler.GetReview(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+
+		assert.True(t, response["success"].(bool))
+		data := response["data"].(map[string]interface{})
+		assert.Equal(t, float64(pendingReview.ID), data["id"])
+		assert.Equal(t, "Pending", data["title"])
+		assert.Equal(t, "Pending content", data["content"])
+
+		// Check user data includes new fields
+		userData := data["user"].(map[string]interface{})
+		assert.Equal(t, user.Email, userData["email"])
+		assert.Equal(t, user.Phone, userData["phone"])
+		assert.Equal(t, user.Avatar, userData["avatar"])
+
+		// Check that moderation history is included for admin
+		assert.Contains(t, data, "moderation_history")
+		moderationHistory, exists := data["moderation_history"]
+		if exists && moderationHistory != nil {
+			historyArray := moderationHistory.([]interface{})
+			assert.Len(t, historyArray, 0) // No moderation history for new review
+		}
 	})
 }
 

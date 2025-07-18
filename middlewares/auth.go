@@ -34,6 +34,35 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
+// OptionalAuthMiddleware allows routes to work with or without authentication
+// If a valid token is provided, user context is set; if not, the request continues without user context
+func OptionalAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.GetHeader("Authorization")
+		if token == "" {
+			// No token provided, continue without user context
+			c.Next()
+			return
+		}
+
+		// Remove the Bearer prefix
+		token = strings.TrimPrefix(token, "Bearer ")
+		claims, err := auth.ValidateToken(token)
+		if err != nil {
+			// Invalid token, continue without user context
+			c.Next()
+			return
+		}
+
+		// Valid token, set user context
+		c.Set("user", claims)
+		c.Set("user_id", claims.UserID)
+		c.Set("user_type", claims.UserType)
+
+		c.Next()
+	}
+}
+
 // AdminMiddleware ensures the user has admin privileges
 func AdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {

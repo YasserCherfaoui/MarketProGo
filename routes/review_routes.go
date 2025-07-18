@@ -11,11 +11,16 @@ func RegisterReviewRoutes(router *gin.RouterGroup, reviewHandler *review.ReviewH
 	// Public routes (no authentication required)
 	reviews := router.Group("/reviews")
 	{
-		// Get single review by ID
-		reviews.GET("/:id", reviewHandler.GetReview)
-
 		// Get reviews for a specific product variant
 		reviews.GET("/product/:productVariantId", reviewHandler.GetProductReviews)
+	}
+
+	// Routes with optional authentication (for GetReview to allow admin access)
+	optionalAuthReviews := router.Group("/reviews")
+	optionalAuthReviews.Use(middlewares.OptionalAuthMiddleware())
+	{
+		// Get single review by ID (admins can see all reviews, others only approved)
+		optionalAuthReviews.GET("/:id", reviewHandler.GetReview)
 	}
 
 	// Authenticated routes (JWT required)

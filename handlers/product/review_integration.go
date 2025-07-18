@@ -111,10 +111,24 @@ func (ris *ReviewIntegrationService) GetVariantRatingSummary(variantID uint) (*P
 	if rating.RatingBreakdown != "" {
 		err = json.Unmarshal([]byte(rating.RatingBreakdown), &ratingBreakdown)
 		if err != nil {
-			ratingBreakdown = make(map[string]int)
+			// If parsing fails, initialize with zeros
+			ratingBreakdown = map[string]int{
+				"1": 0,
+				"2": 0,
+				"3": 0,
+				"4": 0,
+				"5": 0,
+			}
 		}
 	} else {
-		ratingBreakdown = make(map[string]int)
+		// No rating breakdown available, initialize with zeros
+		ratingBreakdown = map[string]int{
+			"1": 0,
+			"2": 0,
+			"3": 0,
+			"4": 0,
+			"5": 0,
+		}
 	}
 
 	// Get recent reviews for this variant

@@ -168,7 +168,7 @@ func (h *ReviewHandler) ModerateReview(c *gin.Context) {
 	// Update rating aggregation if status changed to/from approved
 	if (oldStatus == models.ReviewStatusApproved && req.Status != models.ReviewStatusApproved) ||
 		(oldStatus != models.ReviewStatusApproved && req.Status == models.ReviewStatusApproved) {
-		if err := h.UpdateProductRating(review.ProductVariant.ProductID); err != nil {
+		if err := h.UpdateProductRating(review.ProductVariantID); err != nil {
 			// Log the error but don't fail the request
 			// TODO: Add proper logging
 		}
@@ -215,8 +215,8 @@ func (h *ReviewHandler) AdminDeleteReview(c *gin.Context) {
 		return
 	}
 
-	// Store product ID for aggregation update
-	productID := review.ProductVariant.ProductID
+	// Store product variant ID for aggregation update
+	productVariantID := review.ProductVariantID
 
 	// Permanently delete the review and related data
 	if err := h.db.Unscoped().Delete(&review).Error; err != nil {
@@ -242,7 +242,7 @@ func (h *ReviewHandler) AdminDeleteReview(c *gin.Context) {
 	h.db.Create(&deletionLog)
 
 	// Update rating aggregation
-	if err := h.UpdateProductRating(productID); err != nil {
+	if err := h.UpdateProductRating(productVariantID); err != nil {
 		// Log the error but don't fail the request
 		// TODO: Add proper logging
 	}

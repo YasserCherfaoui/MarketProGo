@@ -1,6 +1,8 @@
 package review
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +15,7 @@ import (
 
 // GetReview handles GET /api/v1/reviews/:id
 // Returns a single review by ID with all related data
+// Admins can see all reviews regardless of status, others only see approved reviews
 func (h *ReviewHandler) GetReview(c *gin.Context) {
 	reviewID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -20,17 +23,28 @@ func (h *ReviewHandler) GetReview(c *gin.Context) {
 		return
 	}
 
-	var review models.ProductReview
-	err = h.db.Preload("User", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id, first_name, last_name, email")
+	// Check if user is authenticated and is admin
+	userType, exists := c.Get("user_type")
+	isAdmin := exists && userType == models.Admin
+
+	// Build query based on user permissions
+	query := h.db.Preload("User", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id, first_name, last_name, email, phone, avatar")
 	}).
 		Preload("ProductVariant").
 		Preload("Images").
 		Preload("SellerResponse.User", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id, first_name, last_name, email")
+			return db.Select("id, first_name, last_name, email, phone, avatar")
 		}).
-		Where("id = ? AND status = ?", reviewID, models.ReviewStatusApproved).
-		First(&review).Error
+		Where("id = ?", reviewID)
+
+	// Only show approved reviews unless user is admin
+	if !isAdmin {
+		query = query.Where("status = ?", models.ReviewStatusApproved)
+	}
+
+	var review models.ProductReview
+	err = query.First(&review).Error
 
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -43,14 +57,17 @@ func (h *ReviewHandler) GetReview(c *gin.Context) {
 
 	// Format response
 	responseData := gin.H{
-		"id":                 review.ID,
+		"ID":                 review.ID,
 		"product_variant_id": review.ProductVariantID,
 		"product_variant":    review.ProductVariant,
 		"user": gin.H{
-			"id":         review.User.ID,
+			"ID":         review.User.ID,
 			"first_name": review.User.FirstName,
 			"last_name":  review.User.LastName,
 			"name":       review.GetReviewerName(),
+			"email":      review.User.Email,
+			"phone":      review.User.Phone,
+			"avatar":     review.User.Avatar,
 		},
 		"rating":               review.Rating,
 		"title":                review.Title,
@@ -58,23 +75,64 @@ func (h *ReviewHandler) GetReview(c *gin.Context) {
 		"is_verified_purchase": review.IsVerifiedPurchase,
 		"helpful_count":        review.HelpfulCount,
 		"images":               review.Images,
-		"created_at":           review.CreatedAt,
-		"updated_at":           review.UpdatedAt,
+		"CreatedAt":            review.CreatedAt,
+		"UpdatedAt":            review.UpdatedAt,
+		"status":               review.Status,
+		"moderated_at":         review.ModeratedAt,
+		"moderation_reason":    review.ModerationReason,
+	}
+
+	// Fetch moderation history if user is admin
+	if isAdmin {
+		var moderationLogs []models.ReviewModerationLog
+		err = h.db.Where("review_id = ?", review.ID).
+			Preload("Admin", func(db *gorm.DB) *gorm.DB {
+				return db.Select("id, first_name, last_name, email")
+			}).
+			Order("created_at DESC").
+			Find(&moderationLogs).Error
+
+		if err != nil {
+			// Log error but don't fail the request
+			fmt.Printf("Failed to fetch moderation logs: %v\n", err)
+		} else {
+			var moderationHistory []gin.H
+			for _, log := range moderationLogs {
+				moderationHistory = append(moderationHistory, gin.H{
+					"ID":           log.ID,
+					"old_status":   log.OldStatus,
+					"new_status":   log.NewStatus,
+					"reason":       log.Reason,
+					"moderated_at": log.ModeratedAt,
+					"admin": gin.H{
+						"ID":         log.Admin.ID,
+						"first_name": log.Admin.FirstName,
+						"last_name":  log.Admin.LastName,
+						"name":       log.Admin.FirstName + " " + log.Admin.LastName,
+						"email":      log.Admin.Email,
+					},
+				})
+			}
+			responseData["moderation_history"] = moderationHistory
+		}
 	}
 
 	// Include seller response if exists
 	if review.SellerResponse != nil {
 		responseData["seller_response"] = gin.H{
-			"id":      review.SellerResponse.ID,
+			"ID":      review.SellerResponse.ID,
 			"content": review.SellerResponse.Content,
 			"user": gin.H{
-				"id":         review.SellerResponse.User.ID,
+				"ID":         review.SellerResponse.User.ID,
 				"first_name": review.SellerResponse.User.FirstName,
 				"last_name":  review.SellerResponse.User.LastName,
 				"name":       review.SellerResponse.User.FirstName + " " + review.SellerResponse.User.LastName,
+				"email":      review.SellerResponse.User.Email,
+				"phone":      review.SellerResponse.User.Phone,
+				"avatar":     review.SellerResponse.User.Avatar,
 			},
-			"created_at": review.SellerResponse.CreatedAt,
-			"updated_at": review.SellerResponse.UpdatedAt,
+			"CreatedAt": review.SellerResponse.CreatedAt,
+			"UpdatedAt": review.SellerResponse.UpdatedAt,
 		}
 	}
 
@@ -97,7 +155,7 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 	// Parse pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	sortBy := c.DefaultQuery("sort", "created_at")
+	sortBy := c.DefaultQuery("sort", "CreatedAt")
 	sortOrder := c.DefaultQuery("order", "desc")
 
 	// Validate pagination parameters
@@ -122,13 +180,13 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 
 	// Validate sort parameters
 	allowedSortFields := map[string]bool{
-		"created_at":    true,
+		"CreatedAt":     true,
 		"rating":        true,
 		"helpful_count": true,
-		"updated_at":    true,
+		"UpdatedAt":     true,
 	}
 	if !allowedSortFields[sortBy] {
-		sortBy = "created_at"
+		sortBy = "CreatedAt"
 	}
 
 	allowedSortOrders := map[string]bool{
@@ -159,11 +217,11 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 	// Get reviews with pagination and sorting
 	var reviews []models.ProductReview
 	err = query.Preload("User", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id, first_name, last_name, email")
+		return db.Select("id, first_name, last_name, email, phone, avatar")
 	}).
 		Preload("Images").
 		Preload("SellerResponse.User", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id, first_name, last_name, email")
+			return db.Select("id, first_name, last_name, email, phone, avatar")
 		}).
 		Order(sortBy + " " + strings.ToUpper(sortOrder)).
 		Offset(offset).
@@ -179,12 +237,15 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 	var formattedReviews []gin.H
 	for _, review := range reviews {
 		reviewData := gin.H{
-			"id": review.ID,
+			"ID": review.ID,
 			"user": gin.H{
-				"id":         review.User.ID,
+				"ID":         review.User.ID,
 				"first_name": review.User.FirstName,
 				"last_name":  review.User.LastName,
 				"name":       review.GetReviewerName(),
+				"email":      review.User.Email,
+				"phone":      review.User.Phone,
+				"avatar":     review.User.Avatar,
 			},
 			"rating":               review.Rating,
 			"title":                review.Title,
@@ -192,23 +253,26 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 			"is_verified_purchase": review.IsVerifiedPurchase,
 			"helpful_count":        review.HelpfulCount,
 			"images":               review.Images,
-			"created_at":           review.CreatedAt,
-			"updated_at":           review.UpdatedAt,
+			"CreatedAt":            review.CreatedAt,
+			"UpdatedAt":            review.UpdatedAt,
 		}
 
 		// Include seller response if exists
 		if review.SellerResponse != nil {
 			reviewData["seller_response"] = gin.H{
-				"id":      review.SellerResponse.ID,
+				"ID":      review.SellerResponse.ID,
 				"content": review.SellerResponse.Content,
 				"user": gin.H{
-					"id":         review.SellerResponse.User.ID,
+					"ID":         review.SellerResponse.User.ID,
 					"first_name": review.SellerResponse.User.FirstName,
 					"last_name":  review.SellerResponse.User.LastName,
 					"name":       review.SellerResponse.User.FirstName + " " + review.SellerResponse.User.LastName,
+					"email":      review.SellerResponse.User.Email,
+					"phone":      review.SellerResponse.User.Phone,
+					"avatar":     review.SellerResponse.User.Avatar,
 				},
-				"created_at": review.SellerResponse.CreatedAt,
-				"updated_at": review.SellerResponse.UpdatedAt,
+				"CreatedAt": review.SellerResponse.CreatedAt,
+				"UpdatedAt": review.SellerResponse.UpdatedAt,
 			}
 		}
 
@@ -226,6 +290,40 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 	if err != nil && err != gorm.ErrRecordNotFound {
 		response.GenerateErrorResponse(c, http.StatusInternalServerError, "RETRIEVE_RATING_STATS_ERROR", "Failed to retrieve rating statistics")
 		return
+	}
+
+	// Parse rating breakdown JSON
+	var ratingBreakdown gin.H
+	if ratingStats.RatingBreakdown != "" {
+		var breakdown map[string]int
+		if err := json.Unmarshal([]byte(ratingStats.RatingBreakdown), &breakdown); err != nil {
+			// If parsing fails, use empty breakdown
+			ratingBreakdown = gin.H{
+				"1": 0,
+				"2": 0,
+				"3": 0,
+				"4": 0,
+				"5": 0,
+			}
+		} else {
+			// Convert to gin.H format
+			ratingBreakdown = gin.H{
+				"1": breakdown["1"],
+				"2": breakdown["2"],
+				"3": breakdown["3"],
+				"4": breakdown["4"],
+				"5": breakdown["5"],
+			}
+		}
+	} else {
+		// No rating breakdown available
+		ratingBreakdown = gin.H{
+			"1": 0,
+			"2": 0,
+			"3": 0,
+			"4": 0,
+			"5": 0,
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -246,28 +344,9 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 				"order":  sortOrder,
 			},
 			"rating_stats": gin.H{
-				"average_rating": ratingStats.AverageRating,
-				"total_reviews":  ratingStats.TotalReviews,
-				"rating_breakdown": func() gin.H {
-					if ratingStats.RatingBreakdown != "" {
-						// Parse JSON rating breakdown if available
-						// For now, return empty breakdown
-						return gin.H{
-							"1": 0,
-							"2": 0,
-							"3": 0,
-							"4": 0,
-							"5": 0,
-						}
-					}
-					return gin.H{
-						"1": 0,
-						"2": 0,
-						"3": 0,
-						"4": 0,
-						"5": 0,
-					}
-				}(),
+				"average_rating":   ratingStats.AverageRating,
+				"total_reviews":    ratingStats.TotalReviews,
+				"rating_breakdown": ratingBreakdown,
 			},
 		},
 	})

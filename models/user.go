@@ -22,6 +22,7 @@ type User struct {
 	FirstName string    `json:"first_name"`
 	LastName  string    `json:"last_name"`
 	Phone     string    `json:"phone"`
+	Avatar    string    `json:"avatar"`
 	UserType  UserType  `gorm:"type:varchar(10);not null" json:"user_type"`
 	IsActive  bool      `gorm:"default:true" json:"is_active"`
 	LastLogin time.Time `json:"last_login"`

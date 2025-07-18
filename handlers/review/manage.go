@@ -71,7 +71,7 @@ func (h *ReviewHandler) UpdateReview(c *gin.Context) {
 	}
 
 	// Update rating aggregation
-	if err := h.UpdateProductRating(review.ProductVariant.ProductID); err != nil {
+	if err := h.UpdateProductRating(review.ProductVariantID); err != nil {
 		// Log the error but don't fail the request
 		// TODO: Add proper logging
 	}
@@ -117,8 +117,8 @@ func (h *ReviewHandler) DeleteReview(c *gin.Context) {
 		return
 	}
 
-	// Store product ID for aggregation update
-	productID := review.ProductVariant.ProductID
+	// Store product variant ID for aggregation update
+	productVariantID := review.ProductVariantID
 
 	// Delete the review (soft delete)
 	if err := h.db.Delete(&review).Error; err != nil {
@@ -132,7 +132,7 @@ func (h *ReviewHandler) DeleteReview(c *gin.Context) {
 	h.db.Where("product_review_id = ?", review.ID).Delete(&models.SellerResponse{})
 
 	// Update rating aggregation
-	if err := h.UpdateProductRating(productID); err != nil {
+	if err := h.UpdateProductRating(productVariantID); err != nil {
 		// Log the error but don't fail the request
 		// TODO: Add proper logging
 	}

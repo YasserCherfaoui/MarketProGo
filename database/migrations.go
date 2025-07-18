@@ -37,6 +37,7 @@ func RunMigrations(db *gorm.DB) error {
 		{"003_create_review_constraints", createReviewConstraints},
 		{"004_add_review_moderation_log", addReviewModerationLog},
 		{"005_optimize_review_queries", optimizeReviewQueries},
+		{"006_add_user_avatar", addUserAvatar},
 	}
 
 	// Run each migration
@@ -412,6 +413,7 @@ func RollbackMigration(db *gorm.DB, migrationName string) error {
 		"003_create_review_constraints": rollbackReviewConstraints,
 		"004_add_review_moderation_log": rollbackReviewModerationLog,
 		"005_optimize_review_queries":   rollbackReviewQueries,
+		"006_add_user_avatar":           rollbackUserAvatar,
 	}
 
 	rollbackFn, exists := rollbackFunctions[migrationName]
@@ -560,6 +562,28 @@ func rollbackReviewQueries(db *gorm.DB) error {
 		}
 	}
 
+	return nil
+}
+
+// addUserAvatar adds the avatar field to the users table
+func addUserAvatar(db *gorm.DB) error {
+	// Add avatar column to users table
+	if err := db.Exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar VARCHAR(255)").Error; err != nil {
+		return fmt.Errorf("failed to add avatar column to users table: %w", err)
+	}
+
+	fmt.Println("Successfully added avatar column to users table")
+	return nil
+}
+
+// rollbackUserAvatar removes the avatar field from the users table
+func rollbackUserAvatar(db *gorm.DB) error {
+	// Remove avatar column from users table
+	if err := db.Exec("ALTER TABLE users DROP COLUMN IF EXISTS avatar").Error; err != nil {
+		return fmt.Errorf("failed to remove avatar column from users table: %w", err)
+	}
+
+	fmt.Println("Successfully removed avatar column from users table")
 	return nil
 }
 
