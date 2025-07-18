@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -176,6 +177,66 @@ func TestAuthMiddlewareSetsUserContext(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestAdminMiddlewareAbortsCorrectly(t *testing.T) {
+	// Test that admin middleware properly aborts and doesn't execute handler
+	router := gin.New()
+
+	// Create a flag to track if handler was called
+	handlerCalled := false
+
+	// Add admin middleware and a test handler
+	router.GET("/admin/test", AdminMiddleware(), func(c *gin.Context) {
+		handlerCalled = true
+		c.JSON(200, gin.H{"message": "handler executed"})
+	})
+
+	// Test without token
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/admin/test", nil)
+	router.ServeHTTP(w, req)
+
+	// Verify response
+	assert.Equal(t, 401, w.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "auth/middleware", response["error"].(map[string]interface{})["code"])
+	assert.Equal(t, "token is required", response["error"].(map[string]interface{})["description"])
+
+	// Verify handler was not called
+	assert.False(t, handlerCalled, "Handler should not be called when middleware aborts")
+}
+
+func TestSellerMiddlewareAbortsCorrectly(t *testing.T) {
+	// Test that seller middleware properly aborts and doesn't execute handler
+	router := gin.New()
+
+	// Create a flag to track if handler was called
+	handlerCalled := false
+
+	// Add seller middleware and a test handler
+	router.GET("/seller/test", SellerMiddleware(), func(c *gin.Context) {
+		handlerCalled = true
+		c.JSON(200, gin.H{"message": "handler executed"})
+	})
+
+	// Test without token
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/seller/test", nil)
+	router.ServeHTTP(w, req)
+
+	// Verify response
+	assert.Equal(t, 401, w.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "auth/middleware", response["error"].(map[string]interface{})["code"])
+	assert.Equal(t, "token is required", response["error"].(map[string]interface{})["description"])
+
+	// Verify handler was not called
+	assert.False(t, handlerCalled, "Handler should not be called when middleware aborts")
 }
 
 func generateTestToken(userID uint, userType models.UserType) string {

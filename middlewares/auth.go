@@ -37,20 +37,30 @@ func AuthMiddleware() gin.HandlerFunc {
 // AdminMiddleware ensures the user has admin privileges
 func AdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// First authenticate the user
-		AuthMiddleware()(c)
-		if c.IsAborted() {
-			return
-		}
-
-		userType, exists := c.Get("user_type")
-		if !exists {
-			response.GenerateUnauthorizedResponse(c, "auth/middleware", "user type not found")
+		// Check if user is authenticated
+		token := c.GetHeader("Authorization")
+		if token == "" {
+			response.GenerateUnauthorizedResponse(c, "auth/middleware", "token is required")
 			c.Abort()
 			return
 		}
 
-		if userType != models.Admin {
+		// Remove the Bearer prefix
+		token = strings.TrimPrefix(token, "Bearer ")
+		claims, err := auth.ValidateToken(token)
+		if err != nil {
+			response.GenerateUnauthorizedResponse(c, "auth/middleware", "token is invalid")
+			c.Abort()
+			return
+		}
+
+		// Set user context
+		c.Set("user", claims)
+		c.Set("user_id", claims.UserID)
+		c.Set("user_type", claims.UserType)
+
+		// Check if user is admin
+		if claims.UserType != models.Admin {
 			response.GenerateForbiddenResponse(c, "auth/middleware", "admin access required")
 			c.Abort()
 			return
@@ -63,21 +73,30 @@ func AdminMiddleware() gin.HandlerFunc {
 // SellerMiddleware ensures the user has seller privileges
 func SellerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// First authenticate the user
-		AuthMiddleware()(c)
-		if c.IsAborted() {
-			return
-		}
-
-		userType, exists := c.Get("user_type")
-		if !exists {
-			response.GenerateUnauthorizedResponse(c, "auth/middleware", "user type not found")
+		// Check if user is authenticated
+		token := c.GetHeader("Authorization")
+		if token == "" {
+			response.GenerateUnauthorizedResponse(c, "auth/middleware", "token is required")
 			c.Abort()
 			return
 		}
 
+		// Remove the Bearer prefix
+		token = strings.TrimPrefix(token, "Bearer ")
+		claims, err := auth.ValidateToken(token)
+		if err != nil {
+			response.GenerateUnauthorizedResponse(c, "auth/middleware", "token is invalid")
+			c.Abort()
+			return
+		}
+
+		// Set user context
+		c.Set("user", claims)
+		c.Set("user_id", claims.UserID)
+		c.Set("user_type", claims.UserType)
+
 		// Allow both Vendor and Admin to access seller routes
-		if userType != models.Vendor && userType != models.Admin {
+		if claims.UserType != models.Vendor && claims.UserType != models.Admin {
 			response.GenerateForbiddenResponse(c, "auth/middleware", "seller access required")
 			c.Abort()
 			return

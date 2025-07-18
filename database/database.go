@@ -43,7 +43,7 @@ func ConnectDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if gin.Mode() == gin.ReleaseMode {
+	if gin.Mode() != gin.ReleaseMode {
 		if err := db.AutoMigrate(
 			&models.Company{},
 			&models.User{},
@@ -77,13 +77,6 @@ func ConnectDB() (*gorm.DB, error) {
 			&models.StockMovement{},
 			&models.Promotion{},
 			&models.ProductVariantPriceTier{},
-			// Product Review System Models
-			&models.ProductReview{},
-			&models.ReviewImage{},
-			&models.SellerResponse{},
-			&models.ReviewHelpful{},
-			&models.ProductRating{},
-			&models.ReviewModerationLog{},
 		); err != nil {
 			return nil, err
 		}

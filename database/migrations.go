@@ -180,9 +180,9 @@ func createReviewIndexes(db *gorm.DB) error {
 func createReviewConstraints(db *gorm.DB) error {
 	// Check if we're using SQLite (for testing) or PostgreSQL (for production)
 	var dbType string
-	db.Raw("SELECT sqlite_version()").Scan(&dbType)
+	err := db.Raw("SELECT sqlite_version()").Scan(&dbType).Error
 
-	if dbType != "" {
+	if err == nil && dbType != "" {
 		// SQLite - constraints are handled by GORM tags, just create unique indexes
 		uniqueIndexes := []struct {
 			name string
@@ -212,66 +212,19 @@ func createReviewConstraints(db *gorm.DB) error {
 			}
 		}
 	} else {
-		// PostgreSQL - create full constraints
+		// PostgreSQL - create only the constraints that GORM doesn't create automatically
+		// GORM already creates foreign keys and unique indexes from the model tags
 		constraints := []struct {
 			name string
 			sql  string
 		}{
 			{
-				name: "fk_product_reviews_variant",
-				sql:  "ALTER TABLE product_reviews ADD CONSTRAINT IF NOT EXISTS fk_product_reviews_variant FOREIGN KEY (product_variant_id) REFERENCES product_variants(id) ON DELETE CASCADE",
-			},
-			{
-				name: "fk_product_reviews_user",
-				sql:  "ALTER TABLE product_reviews ADD CONSTRAINT IF NOT EXISTS fk_product_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
-			},
-			{
-				name: "fk_product_reviews_order_item",
-				sql:  "ALTER TABLE product_reviews ADD CONSTRAINT IF NOT EXISTS fk_product_reviews_order_item FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE SET NULL",
-			},
-			{
-				name: "fk_product_reviews_moderated_by",
-				sql:  "ALTER TABLE product_reviews ADD CONSTRAINT IF NOT EXISTS fk_product_reviews_moderated_by FOREIGN KEY (moderated_by) REFERENCES users(id) ON DELETE SET NULL",
-			},
-			{
-				name: "fk_review_images_review",
-				sql:  "ALTER TABLE review_images ADD CONSTRAINT IF NOT EXISTS fk_review_images_review FOREIGN KEY (product_review_id) REFERENCES product_reviews(id) ON DELETE CASCADE",
-			},
-			{
-				name: "fk_seller_responses_review",
-				sql:  "ALTER TABLE seller_responses ADD CONSTRAINT IF NOT EXISTS fk_seller_responses_review FOREIGN KEY (product_review_id) REFERENCES product_reviews(id) ON DELETE CASCADE",
-			},
-			{
-				name: "fk_seller_responses_user",
-				sql:  "ALTER TABLE seller_responses ADD CONSTRAINT IF NOT EXISTS fk_seller_responses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
-			},
-			{
-				name: "fk_review_helpful_review",
-				sql:  "ALTER TABLE review_helpful_votes ADD CONSTRAINT IF NOT EXISTS fk_review_helpful_review FOREIGN KEY (product_review_id) REFERENCES product_reviews(id) ON DELETE CASCADE",
-			},
-			{
-				name: "fk_review_helpful_user",
-				sql:  "ALTER TABLE review_helpful_votes ADD CONSTRAINT IF NOT EXISTS fk_review_helpful_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
-			},
-			{
-				name: "fk_product_ratings_variant",
-				sql:  "ALTER TABLE product_ratings ADD CONSTRAINT IF NOT EXISTS fk_product_ratings_variant FOREIGN KEY (product_variant_id) REFERENCES product_variants(id) ON DELETE CASCADE",
-			},
-			{
 				name: "unique_review_per_user_variant",
-				sql:  "ALTER TABLE product_reviews ADD CONSTRAINT IF NOT EXISTS unique_review_per_user_variant UNIQUE (user_id, product_variant_id)",
+				sql:  "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'unique_review_per_user_variant') THEN ALTER TABLE product_reviews ADD CONSTRAINT unique_review_per_user_variant UNIQUE (user_id, product_variant_id); END IF; END $$;",
 			},
 			{
 				name: "unique_helpful_vote_per_user_review",
-				sql:  "ALTER TABLE review_helpful_votes ADD CONSTRAINT IF NOT EXISTS unique_helpful_vote_per_user_review UNIQUE (product_review_id, user_id)",
-			},
-			{
-				name: "unique_seller_response_per_review",
-				sql:  "ALTER TABLE seller_responses ADD CONSTRAINT IF NOT EXISTS unique_seller_response_per_review UNIQUE (product_review_id)",
-			},
-			{
-				name: "unique_product_rating_per_variant",
-				sql:  "ALTER TABLE product_ratings ADD CONSTRAINT IF NOT EXISTS unique_product_rating_per_variant UNIQUE (product_variant_id)",
+				sql:  "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'unique_helpful_vote_per_user_review') THEN ALTER TABLE review_helpful_votes ADD CONSTRAINT unique_helpful_vote_per_user_review UNIQUE (product_review_id, user_id); END IF; END $$;",
 			},
 		}
 
@@ -323,9 +276,9 @@ func addReviewModerationLog(db *gorm.DB) error {
 
 	// Check if we're using SQLite (for testing) or PostgreSQL (for production)
 	var dbType string
-	db.Raw("SELECT sqlite_version()").Scan(&dbType)
+	err := db.Raw("SELECT sqlite_version()").Scan(&dbType).Error
 
-	if dbType == "" {
+	if err != nil {
 		// PostgreSQL - create foreign key constraints
 		constraints := []struct {
 			name string
@@ -333,11 +286,11 @@ func addReviewModerationLog(db *gorm.DB) error {
 		}{
 			{
 				name: "fk_moderation_log_review",
-				sql:  "ALTER TABLE review_moderation_logs ADD CONSTRAINT IF NOT EXISTS fk_moderation_log_review FOREIGN KEY (review_id) REFERENCES product_reviews(id) ON DELETE CASCADE",
+				sql:  "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_moderation_log_review') THEN ALTER TABLE review_moderation_logs ADD CONSTRAINT fk_moderation_log_review FOREIGN KEY (review_id) REFERENCES product_reviews(id) ON DELETE CASCADE; END IF; END $$;",
 			},
 			{
 				name: "fk_moderation_log_admin",
-				sql:  "ALTER TABLE review_moderation_logs ADD CONSTRAINT IF NOT EXISTS fk_moderation_log_admin FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE",
+				sql:  "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_moderation_log_admin') THEN ALTER TABLE review_moderation_logs ADD CONSTRAINT fk_moderation_log_admin FOREIGN KEY (admin_id) REFERENCES users(id) ON DELETE CASCADE; END IF; END $$;",
 			},
 		}
 
@@ -356,9 +309,9 @@ func addReviewModerationLog(db *gorm.DB) error {
 func optimizeReviewQueries(db *gorm.DB) error {
 	// Check if we're using SQLite (for testing) or PostgreSQL (for production)
 	var dbType string
-	db.Raw("SELECT sqlite_version()").Scan(&dbType)
+	err := db.Raw("SELECT sqlite_version()").Scan(&dbType).Error
 
-	if dbType != "" {
+	if err == nil && dbType != "" {
 		// SQLite - use CREATE VIEW instead of CREATE OR REPLACE VIEW
 		viewSQL := `
 			CREATE VIEW IF NOT EXISTS review_statistics AS
@@ -479,7 +432,7 @@ func RollbackMigration(db *gorm.DB, migrationName string) error {
 func rollbackReviewTables(db *gorm.DB) error {
 	// Check if we're using SQLite (for testing) or PostgreSQL (for production)
 	var dbType string
-	db.Raw("SELECT sqlite_version()").Scan(&dbType)
+	err := db.Raw("SELECT sqlite_version()").Scan(&dbType).Error
 
 	tables := []string{
 		"review_moderation_logs",
@@ -492,7 +445,7 @@ func rollbackReviewTables(db *gorm.DB) error {
 
 	for _, table := range tables {
 		var dropSQL string
-		if dbType != "" {
+		if err == nil && dbType != "" {
 			// SQLite - no CASCADE support
 			dropSQL = fmt.Sprintf("DROP TABLE IF EXISTS %s", table)
 		} else {
@@ -538,29 +491,9 @@ func rollbackReviewIndexes(db *gorm.DB) error {
 
 // rollbackReviewConstraints drops review constraints
 func rollbackReviewConstraints(db *gorm.DB) error {
-	constraints := []string{
-		"fk_product_reviews_variant",
-		"fk_product_reviews_user",
-		"fk_product_reviews_order_item",
-		"fk_product_reviews_moderated_by",
-		"fk_review_images_review",
-		"fk_seller_responses_review",
-		"fk_seller_responses_user",
-		"fk_review_helpful_review",
-		"fk_review_helpful_user",
-		"fk_product_ratings_variant",
-		"unique_review_per_user_variant",
-		"unique_helpful_vote_per_user_review",
-		"unique_seller_response_per_review",
-		"unique_product_rating_per_variant",
-	}
-
-	for _, constraint := range constraints {
-		if err := db.Exec(fmt.Sprintf("ALTER TABLE product_reviews DROP CONSTRAINT IF EXISTS %s", constraint)).Error; err != nil {
-			return fmt.Errorf("failed to drop constraint %s: %w", constraint, err)
-		}
-	}
-
+	// Since GORM AutoMigrate creates constraints automatically, we don't need to rollback constraints
+	// that were created by the migration system. GORM will handle the constraint management.
+	fmt.Println("Skipping constraint rollback - constraints are managed by GORM AutoMigrate")
 	return nil
 }
 
@@ -592,10 +525,10 @@ func rollbackReviewModerationLog(db *gorm.DB) error {
 
 	// Check if we're using SQLite (for testing) or PostgreSQL (for production)
 	var dbType string
-	db.Raw("SELECT sqlite_version()").Scan(&dbType)
+	err := db.Raw("SELECT sqlite_version()").Scan(&dbType).Error
 
 	var dropSQL string
-	if dbType != "" {
+	if err == nil && dbType != "" {
 		// SQLite - no CASCADE support
 		dropSQL = "DROP TABLE IF EXISTS review_moderation_logs"
 	} else {
