@@ -145,6 +145,12 @@ func (h *ReviewHandler) GetReview(c *gin.Context) {
 // GetProductReviews handles GET /api/v1/reviews/product/:productVariantId
 // Returns paginated reviews for a product with filtering options
 func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
+	// Add basic database connectivity check
+	if err := h.db.Raw("SELECT 1").Error; err != nil {
+		fmt.Printf("Database connectivity error: %v\n", err)
+		response.GenerateErrorResponse(c, http.StatusInternalServerError, "DATABASE_CONNECTION_ERROR", "Database connection failed")
+		return
+	}
 	// Parse product variant ID
 	productVariantID, err := strconv.ParseUint(c.Param("productVariantId"), 10, 32)
 	if err != nil {
@@ -178,15 +184,18 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 		}
 	}
 
-	// Validate sort parameters
-	allowedSortFields := map[string]bool{
-		"CreatedAt":     true,
-		"rating":        true,
-		"helpful_count": true,
-		"UpdatedAt":     true,
+	// Validate sort parameters and map to database column names
+	sortFieldMap := map[string]string{
+		"created_at":    "created_at",
+		"rating":        "rating",
+		"helpful_count": "helpful_count",
+		"updated_at":    "updated_at",
 	}
-	if !allowedSortFields[sortBy] {
-		sortBy = "CreatedAt"
+
+	if dbField, exists := sortFieldMap[strings.ToLower(sortBy)]; exists {
+		sortBy = dbField
+	} else {
+		sortBy = "created_at"
 	}
 
 	allowedSortOrders := map[string]bool{
@@ -195,6 +204,31 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 	}
 	if !allowedSortOrders[sortOrder] {
 		sortOrder = "desc"
+	}
+
+	// Check if required tables exist
+	if err := h.db.Raw("SELECT 1 FROM product_variants LIMIT 1").Error; err != nil {
+		fmt.Printf("Table product_variants not found: %v\n", err)
+		response.GenerateErrorResponse(c, http.StatusInternalServerError, "TABLE_NOT_FOUND", "Required database tables not found")
+		return
+	}
+
+	if err := h.db.Raw("SELECT 1 FROM product_reviews LIMIT 1").Error; err != nil {
+		fmt.Printf("Table product_reviews not found: %v\n", err)
+		response.GenerateErrorResponse(c, http.StatusInternalServerError, "TABLE_NOT_FOUND", "Required database tables not found")
+		return
+	}
+
+	// Check if product variant exists first
+	var productVariant models.ProductVariant
+	if err := h.db.First(&productVariant, productVariantID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			response.GenerateErrorResponse(c, http.StatusNotFound, "PRODUCT_VARIANT_NOT_FOUND", "Product variant not found")
+			return
+		}
+		fmt.Printf("Error checking product variant %d: %v\n", productVariantID, err)
+		response.GenerateErrorResponse(c, http.StatusInternalServerError, "PRODUCT_VARIANT_ERROR", "Failed to check product variant")
+		return
 	}
 
 	// Build query
@@ -210,6 +244,8 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 	var total int64
 	err = query.Count(&total).Error
 	if err != nil {
+		// Log the error for debugging
+		fmt.Printf("Error counting reviews for product variant %d: %v\n", productVariantID, err)
 		response.GenerateErrorResponse(c, http.StatusInternalServerError, "COUNT_REVIEWS_ERROR", "Failed to count reviews")
 		return
 	}
@@ -229,6 +265,8 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 		Find(&reviews).Error
 
 	if err != nil {
+		// Log the error for debugging
+		fmt.Printf("Error retrieving reviews for product variant %d: %v\n", productVariantID, err)
 		response.GenerateErrorResponse(c, http.StatusInternalServerError, "RETRIEVE_REVIEWS_ERROR", "Failed to retrieve reviews")
 		return
 	}
