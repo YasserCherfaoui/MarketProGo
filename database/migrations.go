@@ -39,6 +39,8 @@ func RunMigrations(db *gorm.DB) error {
 		{"004_add_review_moderation_log", addReviewModerationLog},
 		{"005_optimize_review_queries", optimizeReviewQueries},
 		{"006_add_user_avatar", addUserAvatar},
+		{"007_create_payment_tables", createPaymentTables},
+		{"008_add_revolut_order_fields", addRevolutOrderFields},
 	}
 
 	// Run each migration
@@ -593,4 +595,71 @@ func GetMigrationStatus(db *gorm.DB) ([]Migration, error) {
 	var migrations []Migration
 	err := db.Order("created_at ASC").Find(&migrations).Error
 	return migrations, err
+}
+
+// createPaymentTables creates the payment-related tables
+func createPaymentTables(db *gorm.DB) error {
+	// Create Payment table
+	if err := db.AutoMigrate(&models.Payment{}); err != nil {
+		return fmt.Errorf("failed to create payments table: %w", err)
+	}
+
+	// Create PaymentLog table
+	if err := db.AutoMigrate(&models.PaymentLog{}); err != nil {
+		return fmt.Errorf("failed to create payment_logs table: %w", err)
+	}
+
+	// Create indexes for efficient queries
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id)",
+		"CREATE INDEX IF NOT EXISTS idx_payments_revolut_order_id ON payments(revolut_order_id)",
+		"CREATE INDEX IF NOT EXISTS idx_payments_revolut_payment_id ON payments(revolut_payment_id)",
+		"CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)",
+		"CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at)",
+		"CREATE INDEX IF NOT EXISTS idx_payment_logs_payment_id ON payment_logs(payment_id)",
+		"CREATE INDEX IF NOT EXISTS idx_payment_logs_event ON payment_logs(event)",
+		"CREATE INDEX IF NOT EXISTS idx_payment_logs_created_at ON payment_logs(created_at)",
+	}
+
+	for _, index := range indexes {
+		if err := db.Exec(index).Error; err != nil {
+			return fmt.Errorf("failed to create payment index: %w", err)
+		}
+	}
+
+	fmt.Println("Successfully created payment tables and indexes")
+	return nil
+}
+
+// addRevolutOrderFields adds Revolut-specific fields to the orders table
+func addRevolutOrderFields(db *gorm.DB) error {
+	// Add Revolut-specific columns to orders table
+	alterations := []string{
+		"ALTER TABLE orders ADD COLUMN IF NOT EXISTS revolut_order_id VARCHAR(255)",
+		"ALTER TABLE orders ADD COLUMN IF NOT EXISTS revolut_payment_id VARCHAR(255)",
+		"ALTER TABLE orders ADD COLUMN IF NOT EXISTS checkout_url TEXT",
+		"ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_provider VARCHAR(50) DEFAULT 'revolut'",
+	}
+
+	for _, alteration := range alterations {
+		if err := db.Exec(alteration).Error; err != nil {
+			return fmt.Errorf("failed to add Revolut fields to orders table: %w", err)
+		}
+	}
+
+	// Create indexes for the new fields
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_orders_revolut_order_id ON orders(revolut_order_id)",
+		"CREATE INDEX IF NOT EXISTS idx_orders_revolut_payment_id ON orders(revolut_payment_id)",
+		"CREATE INDEX IF NOT EXISTS idx_orders_payment_provider ON orders(payment_provider)",
+	}
+
+	for _, index := range indexes {
+		if err := db.Exec(index).Error; err != nil {
+			return fmt.Errorf("failed to create order Revolut index: %w", err)
+		}
+	}
+
+	fmt.Println("Successfully added Revolut fields to orders table")
+	return nil
 }

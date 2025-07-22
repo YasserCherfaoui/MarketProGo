@@ -51,7 +51,7 @@ func main() {
 		panic(err)
 	}
 
-	routes.AppRoutes(r, db, gcsService, appwriteService)
+	routes.AppRoutes(r, db, gcsService, appwriteService, cfg)
 	r.Run()
 
 }

@@ -1,0 +1,552 @@
+package payment
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"log"
+	"strconv"
+	"time"
+
+	"github.com/YasserCherfaoui/MarketProGo/cfg"
+	"github.com/YasserCherfaoui/MarketProGo/models"
+	"github.com/YasserCherfaoui/MarketProGo/payment/revolut"
+	"gorm.io/gorm"
+)
+
+// RevolutPaymentService implements PaymentService for Revolut
+type RevolutPaymentService struct {
+	client        *revolut.Client
+	db            *gorm.DB
+	webhookSecret string
+	config        *cfg.RevolutConfig
+}
+
+// NewRevolutPaymentService creates a new Revolut payment service
+func NewRevolutPaymentService(db *gorm.DB, config *cfg.RevolutConfig) *RevolutPaymentService {
+	client := revolut.NewClient(config)
+
+	return &RevolutPaymentService{
+		client:        client,
+		db:            db,
+		webhookSecret: config.WebhookSecret,
+		config:        config,
+	}
+}
+
+// CreatePayment creates a new payment using Revolut
+func (s *RevolutPaymentService) CreatePayment(ctx context.Context, req *PaymentRequest) (*PaymentResponse, error) {
+	// Validate request
+	if req.Amount <= 0 {
+		return nil, fmt.Errorf("invalid amount: must be greater than 0")
+	}
+	if req.CustomerInfo == nil {
+		return nil, fmt.Errorf("customer info is required")
+	}
+
+	// Get order details
+	var order models.Order
+	if err := s.db.WithContext(ctx).First(&order, req.OrderID).Error; err != nil {
+		return nil, fmt.Errorf("failed to get order: %w", err)
+	}
+
+	// Create Revolut order request
+	revolutReq := &revolut.OrderRequest{
+		Amount:          req.Amount,
+		Currency:        req.Currency,
+		MerchantOrderID: strconv.FormatUint(uint64(req.OrderID), 10),
+		CustomerEmail:   req.CustomerInfo.Email,
+		CustomerName:    req.CustomerInfo.Name,
+		Description:     req.Description,
+		Metadata:        req.Metadata,
+		CaptureMode:     "AUTOMATIC", // Automatically capture payment
+		ReturnURL:       req.ReturnURL,
+		CancelURL:       req.CancelURL,
+	}
+
+	// Create order in Revolut
+	revolutResp, err := s.client.CreateOrder(revolutReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Revolut order: %w", err)
+	}
+
+	// Create payment record in database
+	payment := &models.Payment{
+		OrderID:          req.OrderID,
+		RevolutOrderID:   revolutResp.ID,
+		RevolutPaymentID: "", // Will be set when payment is completed
+		Amount:           req.Amount,
+		Currency:         req.Currency,
+		Status:           models.RevolutPaymentStatusPending,
+		CustomerID:       strconv.FormatUint(uint64(req.CustomerInfo.ID), 10),
+		CheckoutURL:      revolutResp.CheckoutURL,
+		Metadata:         models.JSON(map[string]interface{}{}),
+		CreatedBy:        req.CustomerInfo.ID,
+	}
+
+	if err := s.db.WithContext(ctx).Create(payment).Error; err != nil {
+		return nil, fmt.Errorf("failed to create payment record: %w", err)
+	}
+
+	// Update order with Revolut information
+	order.RevolutOrderID = revolutResp.ID
+	order.CheckoutURL = revolutResp.CheckoutURL
+	order.PaymentProvider = "revolut"
+
+	if err := s.db.WithContext(ctx).Save(&order).Error; err != nil {
+		log.Printf("Warning: failed to update order with Revolut info: %v", err)
+	}
+
+	// Log payment creation
+	s.logPaymentEvent(ctx, payment.ID, "payment_created", "Payment created successfully", map[string]interface{}{
+		"revolut_order_id": revolutResp.ID,
+		"checkout_url":     revolutResp.CheckoutURL,
+	})
+
+	return &PaymentResponse{
+		PaymentID:   strconv.FormatUint(uint64(payment.ID), 10),
+		OrderID:     revolutResp.ID,
+		Amount:      req.Amount,
+		Currency:    req.Currency,
+		Status:      string(payment.Status),
+		CheckoutURL: revolutResp.CheckoutURL,
+		CreatedAt:   payment.CreatedAt,
+	}, nil
+}
+
+// GetPaymentStatus retrieves the current status of a payment
+func (s *RevolutPaymentService) GetPaymentStatus(ctx context.Context, paymentID string) (string, error) {
+	// Get payment from database
+	var payment models.Payment
+	if err := s.db.WithContext(ctx).First(&payment, paymentID).Error; err != nil {
+		return "", fmt.Errorf("payment not found: %w", err)
+	}
+
+	// If we have a Revolut order ID, check with Revolut API
+	if payment.RevolutOrderID != "" {
+		revolutOrder, err := s.client.GetOrder(payment.RevolutOrderID)
+		if err != nil {
+			log.Printf("Warning: failed to get Revolut order status: %v", err)
+			// Return database status if API call fails
+			return string(payment.Status), nil
+		}
+
+		// Update payment status if it has changed
+		newStatus := s.mapRevolutStatusToPaymentStatus(revolutOrder.State)
+		if newStatus != payment.Status {
+			oldStatus := payment.Status
+			payment.Status = newStatus
+
+			if newStatus == models.RevolutPaymentStatusCompleted {
+				now := time.Now()
+				payment.CompletedAt = &now
+			}
+
+			if err := s.db.WithContext(ctx).Save(&payment).Error; err != nil {
+				log.Printf("Warning: failed to update payment status: %v", err)
+			} else {
+				// Log status change
+				s.logPaymentEvent(ctx, payment.ID, "status_changed", "Payment status updated", map[string]interface{}{
+					"old_status":    oldStatus,
+					"new_status":    newStatus,
+					"revolut_state": revolutOrder.State,
+				})
+			}
+		}
+	}
+
+	return string(payment.Status), nil
+}
+
+// CapturePayment captures an authorized payment
+func (s *RevolutPaymentService) CapturePayment(ctx context.Context, paymentID string) error {
+	// Get payment from database
+	var payment models.Payment
+	if err := s.db.WithContext(ctx).First(&payment, paymentID).Error; err != nil {
+		return fmt.Errorf("payment not found: %w", err)
+	}
+
+	if payment.RevolutPaymentID == "" {
+		return fmt.Errorf("no Revolut payment ID available for capture")
+	}
+
+	// Capture payment in Revolut
+	_, err := s.client.CaptureOrder(payment.RevolutOrderID)
+	if err != nil {
+		return fmt.Errorf("failed to capture payment: %w", err)
+	}
+
+	// Update payment status
+	payment.Status = models.RevolutPaymentStatusCompleted
+	now := time.Now()
+	payment.CompletedAt = &now
+
+	if err := s.db.WithContext(ctx).Save(&payment).Error; err != nil {
+		return fmt.Errorf("failed to update payment status: %w", err)
+	}
+
+	// Log capture event
+	s.logPaymentEvent(ctx, payment.ID, "payment_captured", "Payment captured successfully", nil)
+
+	return nil
+}
+
+// RefundPayment refunds a payment
+func (s *RevolutPaymentService) RefundPayment(ctx context.Context, req *RefundRequest) (*RefundResponse, error) {
+	// Get payment from database
+	var payment models.Payment
+	if err := s.db.WithContext(ctx).First(&payment, req.PaymentID).Error; err != nil {
+		return nil, fmt.Errorf("payment not found: %w", err)
+	}
+
+	if !payment.CanRefund() {
+		return nil, fmt.Errorf("payment cannot be refunded")
+	}
+
+	if req.Amount > payment.GetRefundableAmount() {
+		return nil, fmt.Errorf("refund amount exceeds refundable amount")
+	}
+
+	// Create refund request
+	revolutRefundReq := &revolut.RefundRequest{
+		Amount:   req.Amount,
+		Currency: payment.Currency,
+		Reason:   req.Reason,
+		Metadata: req.Metadata,
+	}
+
+	// Process refund in Revolut
+	revolutResp, err := s.client.RefundPayment(payment.RevolutPaymentID, revolutRefundReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process refund: %w", err)
+	}
+
+	// Update payment record
+	payment.RefundedAmount += req.Amount
+	if payment.RefundedAmount >= payment.Amount {
+		payment.Status = models.RevolutPaymentStatusRefunded
+	}
+	payment.RefundStatus = revolutResp.State
+
+	if err := s.db.WithContext(ctx).Save(&payment).Error; err != nil {
+		return nil, fmt.Errorf("failed to update payment record: %w", err)
+	}
+
+	// Log refund event
+	s.logPaymentEvent(ctx, payment.ID, "payment_refunded", "Payment refunded", map[string]interface{}{
+		"refund_amount":     req.Amount,
+		"refund_reason":     req.Reason,
+		"revolut_refund_id": revolutResp.ID,
+	})
+
+	return &RefundResponse{
+		RefundID:  revolutResp.ID,
+		PaymentID: req.PaymentID,
+		Amount:    req.Amount,
+		Status:    revolutResp.State,
+		CreatedAt: time.Now(),
+		Reason:    req.Reason,
+	}, nil
+}
+
+// CancelPayment cancels a pending payment
+func (s *RevolutPaymentService) CancelPayment(ctx context.Context, paymentID string) error {
+	// Get payment from database
+	var payment models.Payment
+	if err := s.db.WithContext(ctx).First(&payment, paymentID).Error; err != nil {
+		return fmt.Errorf("payment not found: %w", err)
+	}
+
+	if payment.Status != models.RevolutPaymentStatusPending {
+		return fmt.Errorf("only pending payments can be cancelled")
+	}
+
+	// Update payment status
+	payment.Status = models.RevolutPaymentStatusCancelled
+
+	if err := s.db.WithContext(ctx).Save(&payment).Error; err != nil {
+		return fmt.Errorf("failed to update payment status: %w", err)
+	}
+
+	// Log cancellation event
+	s.logPaymentEvent(ctx, payment.ID, "payment_cancelled", "Payment cancelled", nil)
+
+	return nil
+}
+
+// HandleWebhook processes webhook notifications from Revolut
+func (s *RevolutPaymentService) HandleWebhook(ctx context.Context, payload []byte, signature string) error {
+	// Validate webhook signature
+	if !s.validateWebhookSignature(payload, signature) {
+		return fmt.Errorf("invalid webhook signature")
+	}
+
+	// Parse webhook payload
+	var webhookData map[string]interface{}
+	if err := json.Unmarshal(payload, &webhookData); err != nil {
+		return fmt.Errorf("failed to parse webhook payload: %w", err)
+	}
+
+	// Extract order ID from webhook
+	orderID, ok := webhookData["order_id"].(string)
+	if !ok {
+		return fmt.Errorf("invalid webhook payload: missing order_id")
+	}
+
+	// Get payment by Revolut order ID
+	var payment models.Payment
+	if err := s.db.WithContext(ctx).Where("revolut_order_id = ?", orderID).First(&payment).Error; err != nil {
+		return fmt.Errorf("payment not found for order ID %s: %w", orderID, err)
+	}
+
+	// Update payment based on webhook event
+	if err := s.processWebhookEvent(ctx, &payment, webhookData); err != nil {
+		return fmt.Errorf("failed to process webhook event: %w", err)
+	}
+
+	return nil
+}
+
+// GetPayment retrieves payment details by ID
+func (s *RevolutPaymentService) GetPayment(ctx context.Context, paymentID string) (*models.Payment, error) {
+	var payment models.Payment
+	if err := s.db.WithContext(ctx).First(&payment, paymentID).Error; err != nil {
+		return nil, fmt.Errorf("payment not found: %w", err)
+	}
+	return &payment, nil
+}
+
+// ListPayments retrieves a list of payments with optional filtering
+func (s *RevolutPaymentService) ListPayments(ctx context.Context, orderID *uint, status *string, limit, offset int) ([]*models.Payment, int64, error) {
+	query := s.db.WithContext(ctx).Model(&models.Payment{})
+
+	if orderID != nil {
+		query = query.Where("order_id = ?", *orderID)
+	}
+
+	if status != nil {
+		query = query.Where("status = ?", *status)
+	}
+
+	// Get total count
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count payments: %w", err)
+	}
+
+	// Get payments with pagination
+	var payments []*models.Payment
+	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&payments).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to get payments: %w", err)
+	}
+
+	return payments, total, nil
+}
+
+// Helper methods
+
+// mapRevolutStatusToPaymentStatus maps Revolut order states to our payment status
+// This is used when polling the Revolut API for order status
+func (s *RevolutPaymentService) mapRevolutStatusToPaymentStatus(revolutState string) models.RevolutPaymentStatus {
+	switch revolutState {
+	case "PENDING":
+		return models.RevolutPaymentStatusPending
+	case "AUTHORIZED":
+		return models.RevolutPaymentStatusAuthorized
+	case "COMPLETED":
+		return models.RevolutPaymentStatusCompleted
+	case "FAILED":
+		return models.RevolutPaymentStatusFailed
+	case "CANCELLED":
+		return models.RevolutPaymentStatusCancelled
+	case "REFUNDED":
+		return models.RevolutPaymentStatusRefunded
+	default:
+		return models.RevolutPaymentStatusPending
+	}
+}
+
+// validateWebhookSignature validates the webhook signature
+func (s *RevolutPaymentService) validateWebhookSignature(payload []byte, signature string) bool {
+	if s.webhookSecret == "" {
+		log.Printf("Warning: webhook secret not configured, skipping signature validation")
+		return true
+	}
+
+	// Create HMAC-SHA256 signature
+	h := hmac.New(sha256.New, []byte(s.webhookSecret))
+	h.Write(payload)
+	expectedSignature := hex.EncodeToString(h.Sum(nil))
+
+	return hmac.Equal([]byte(signature), []byte(expectedSignature))
+}
+
+// processWebhookEvent processes a webhook event and updates payment status
+// Based on Revolut webhook documentation: https://developer.revolut.com/docs/guides/accept-payments/tutorials/work-with-webhooks/using-webhooks
+func (s *RevolutPaymentService) processWebhookEvent(ctx context.Context, payment *models.Payment, webhookData map[string]interface{}) error {
+	// Extract event type and order ID from webhook
+	event, _ := webhookData["event"].(string)
+	orderID, _ := webhookData["order_id"].(string)
+	merchantOrderExtRef, _ := webhookData["merchant_order_ext_ref"].(string)
+
+	// Log the webhook event first
+	s.logPaymentEvent(ctx, payment.ID, "webhook_received", fmt.Sprintf("Webhook event: %s", event), map[string]interface{}{
+		"webhook_event":          event,
+		"revolut_order_id":       orderID,
+		"merchant_order_ext_ref": merchantOrderExtRef,
+		"webhook_data":           webhookData,
+	})
+
+	// Handle different webhook events
+	switch event {
+	case "ORDER_COMPLETED":
+		return s.handleOrderCompleted(ctx, payment, webhookData)
+	case "ORDER_PAYMENT_FAILED":
+		return s.handleOrderPaymentFailed(ctx, payment, webhookData)
+	case "ORDER_AUTHORIZED":
+		return s.handleOrderAuthorized(ctx, payment, webhookData)
+	case "ORDER_CANCELLED":
+		return s.handleOrderCancelled(ctx, payment, webhookData)
+	default:
+		// Log unknown event but don't fail
+		log.Printf("Unknown webhook event: %s", event)
+		return nil
+	}
+}
+
+// handleOrderCompleted processes ORDER_COMPLETED webhook event
+func (s *RevolutPaymentService) handleOrderCompleted(ctx context.Context, payment *models.Payment, webhookData map[string]interface{}) error {
+	oldStatus := payment.Status
+	payment.Status = models.RevolutPaymentStatusCompleted
+	now := time.Now()
+	payment.CompletedAt = &now
+
+	// Update order status to PAID
+	var order models.Order
+	if err := s.db.WithContext(ctx).First(&order, payment.OrderID).Error; err != nil {
+		log.Printf("Warning: failed to get order for payment %d: %v", payment.ID, err)
+	} else {
+		order.PaymentStatus = models.PaymentStatusPaid
+		order.PaymentDate = &now
+		if err := s.db.WithContext(ctx).Save(&order).Error; err != nil {
+			log.Printf("Warning: failed to update order payment status: %v", err)
+		}
+	}
+
+	// Save payment changes
+	if err := s.db.WithContext(ctx).Save(payment).Error; err != nil {
+		return fmt.Errorf("failed to update payment: %w", err)
+	}
+
+	// Log the status change
+	s.logPaymentEvent(ctx, payment.ID, "payment_completed", "Payment completed successfully", map[string]interface{}{
+		"old_status":   oldStatus,
+		"new_status":   payment.Status,
+		"completed_at": now,
+	})
+
+	return nil
+}
+
+// handleOrderPaymentFailed processes ORDER_PAYMENT_FAILED webhook event
+func (s *RevolutPaymentService) handleOrderPaymentFailed(ctx context.Context, payment *models.Payment, webhookData map[string]interface{}) error {
+	oldStatus := payment.Status
+	payment.Status = models.RevolutPaymentStatusFailed
+
+	// Extract failure reason if available
+	if failureReason, ok := webhookData["failure_reason"].(string); ok {
+		payment.FailureReason = failureReason
+	}
+
+	// Update order status to FAILED
+	var order models.Order
+	if err := s.db.WithContext(ctx).First(&order, payment.OrderID).Error; err != nil {
+		log.Printf("Warning: failed to get order for payment %d: %v", payment.ID, err)
+	} else {
+		order.PaymentStatus = models.PaymentStatusFailed
+		if err := s.db.WithContext(ctx).Save(&order).Error; err != nil {
+			log.Printf("Warning: failed to update order payment status: %v", err)
+		}
+	}
+
+	// Save payment changes
+	if err := s.db.WithContext(ctx).Save(payment).Error; err != nil {
+		return fmt.Errorf("failed to update payment: %w", err)
+	}
+
+	// Log the status change
+	s.logPaymentEvent(ctx, payment.ID, "payment_failed", "Payment failed", map[string]interface{}{
+		"old_status":     oldStatus,
+		"new_status":     payment.Status,
+		"failure_reason": payment.FailureReason,
+	})
+
+	return nil
+}
+
+// handleOrderAuthorized processes ORDER_AUTHORIZED webhook event
+func (s *RevolutPaymentService) handleOrderAuthorized(ctx context.Context, payment *models.Payment, webhookData map[string]interface{}) error {
+	oldStatus := payment.Status
+	payment.Status = models.RevolutPaymentStatusAuthorized
+
+	// Save payment changes
+	if err := s.db.WithContext(ctx).Save(payment).Error; err != nil {
+		return fmt.Errorf("failed to update payment: %w", err)
+	}
+
+	// Log the status change
+	s.logPaymentEvent(ctx, payment.ID, "payment_authorized", "Payment authorized", map[string]interface{}{
+		"old_status": oldStatus,
+		"new_status": payment.Status,
+	})
+
+	return nil
+}
+
+// handleOrderCancelled processes ORDER_CANCELLED webhook event
+func (s *RevolutPaymentService) handleOrderCancelled(ctx context.Context, payment *models.Payment, webhookData map[string]interface{}) error {
+	oldStatus := payment.Status
+	payment.Status = models.RevolutPaymentStatusCancelled
+
+	// Update order status to CANCELLED
+	var order models.Order
+	if err := s.db.WithContext(ctx).First(&order, payment.OrderID).Error; err != nil {
+		log.Printf("Warning: failed to get order for payment %d: %v", payment.ID, err)
+	} else {
+		order.Status = models.OrderStatusCancelled
+		if err := s.db.WithContext(ctx).Save(&order).Error; err != nil {
+			log.Printf("Warning: failed to update order status: %v", err)
+		}
+	}
+
+	// Save payment changes
+	if err := s.db.WithContext(ctx).Save(payment).Error; err != nil {
+		return fmt.Errorf("failed to update payment: %w", err)
+	}
+
+	// Log the status change
+	s.logPaymentEvent(ctx, payment.ID, "payment_cancelled", "Payment cancelled", map[string]interface{}{
+		"old_status": oldStatus,
+		"new_status": payment.Status,
+	})
+
+	return nil
+}
+
+// logPaymentEvent logs a payment event
+func (s *RevolutPaymentService) logPaymentEvent(ctx context.Context, paymentID uint, event, message string, metadata map[string]interface{}) {
+	paymentLog := &models.PaymentLog{
+		PaymentID: paymentID,
+		Event:     event,
+		Message:   message,
+		Metadata:  models.JSON(metadata),
+		CreatedBy: 0, // System event
+	}
+
+	if err := s.db.WithContext(ctx).Create(paymentLog).Error; err != nil {
+		log.Printf("Warning: failed to log payment event: %v", err)
+	}
+}

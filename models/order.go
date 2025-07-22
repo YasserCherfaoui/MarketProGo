@@ -53,6 +53,12 @@ type Order struct {
 	PaymentReference string     `json:"payment_reference"`
 	PaymentDate      *time.Time `json:"payment_date"`
 
+	// Revolut payment fields
+	RevolutOrderID   string `json:"revolut_order_id"`
+	RevolutPaymentID string `json:"revolut_payment_id"`
+	CheckoutURL      string `json:"checkout_url"`
+	PaymentProvider  string `json:"payment_provider" gorm:"default:'revolut'"`
+
 	// Order Items
 	Items []OrderItem `json:"items"`
 

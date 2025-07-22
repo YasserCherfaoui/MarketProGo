@@ -7,6 +7,15 @@ import (
 	"github.com/joho/godotenv" // Optional: for loading .env files
 )
 
+// RevolutConfig holds Revolut API configuration
+type RevolutConfig struct {
+	APIKey        string
+	MerchantID    string
+	WebhookSecret string
+	BaseURL       string // Different for sandbox and production
+	IsSandbox     bool
+}
+
 // AppConfig holds all application configurations
 type AppConfig struct {
 	Port string
@@ -28,6 +37,8 @@ type AppConfig struct {
 	AppwriteProject  string
 	AppwriteKey      string
 	AppwriteBucketId string
+	// Revolut configuration
+	Revolut RevolutConfig
 }
 
 // LoadConfig loads configuration from environment variables
@@ -36,6 +47,15 @@ func LoadConfig() (*AppConfig, error) {
 	// Optional: Load .env file for local development
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found or error loading, relying on environment variables.")
+	}
+
+	// Determine if we're in sandbox mode
+	isSandbox := getEnv("REVOLUT_SANDBOX", "true") == "true"
+
+	// Set base URL based on sandbox mode
+	baseURL := "https://sandbox-merchant.revolut.com"
+	if !isSandbox {
+		baseURL = "https://merchant.revolut.com"
 	}
 
 	cfg := &AppConfig{
@@ -54,6 +74,13 @@ func LoadConfig() (*AppConfig, error) {
 		AppwriteProject:    getEnv("APPWRITE_PROJECT", ""),
 		AppwriteKey:        getEnv("APPWRITE_KEY", ""),
 		AppwriteBucketId:   getEnv("APPWRITE_BUCKET_ID", ""),
+		Revolut: RevolutConfig{
+			APIKey:        getEnv("REVOLUT_API_KEY", ""),
+			MerchantID:    getEnv("REVOLUT_MERCHANT_ID", ""),
+			WebhookSecret: getEnv("REVOLUT_WEBHOOK_SECRET", ""),
+			BaseURL:       baseURL,
+			IsSandbox:     isSandbox,
+		},
 	}
 
 	if cfg.GCSBucketName == "" {
