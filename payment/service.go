@@ -80,7 +80,7 @@ type PaymentService interface {
 	CancelPayment(ctx context.Context, paymentID string) error
 
 	// HandleWebhook processes webhook notifications from the payment provider
-	HandleWebhook(ctx context.Context, payload []byte, signature string) error
+	HandleWebhook(ctx context.Context, payload []byte, signature string, timestamp string) error
 
 	// GetPayment retrieves payment details by ID
 	GetPayment(ctx context.Context, paymentID string) (*models.Payment, error)

@@ -2,7 +2,12 @@ package payment
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
+
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 
 	"github.com/YasserCherfaoui/MarketProGo/cfg"
 	"github.com/YasserCherfaoui/MarketProGo/models"
@@ -44,79 +49,101 @@ func TestRevolutPaymentService_MapRevolutStatusToPaymentStatus(t *testing.T) {
 	}
 }
 
-func TestRevolutPaymentService_ValidateWebhookSignature(t *testing.T) {
-	// Setup
+func TestRevolutPaymentService_WebhookSignatureValidation(t *testing.T) {
 	config := &cfg.RevolutConfig{
 		APIKey:        "test_api_key",
 		BaseURL:       "https://sandbox-merchant.revolut.com",
-		IsSandbox:     true,
 		WebhookSecret: "test_webhook_secret",
+		IsSandbox:     true,
 	}
 
 	service := &RevolutPaymentService{
-		config: config,
+		webhookSecret: config.WebhookSecret,
+		config:        config,
 	}
 
-	// Test data
-	payload := []byte(`{"test": "data"}`)
+	// Test with valid signature
+	payload := []byte(`{"event": "ORDER_COMPLETED", "order_id": "test-order-id"}`)
+	timestamp := "1683650202360"
 
-	// Test with empty webhook secret (should return true when webhook secret is not configured)
-	service.webhookSecret = ""
-	result := service.validateWebhookSignature(payload, "")
+	// Create a valid signature
+	payloadToSign := fmt.Sprintf("v1.%s.%s", timestamp, string(payload))
+	h := hmac.New(sha256.New, []byte(config.WebhookSecret))
+	h.Write([]byte(payloadToSign))
+	validSignature := "v1=" + hex.EncodeToString(h.Sum(nil))
+
+	result := service.validateWebhookSignature(payload, validSignature, timestamp)
 	assert.True(t, result)
 
-	// Test with webhook secret configured but invalid signature
-	service.webhookSecret = "test_secret"
-	result = service.validateWebhookSignature(payload, "invalid_signature")
-	assert.False(t, result)
-
-	// Test with valid signature (this would require calculating the actual HMAC)
-	// For now, we just test that it returns false for invalid signatures
-	service.webhookSecret = "test_secret"
-	result = service.validateWebhookSignature(payload, "valid_signature_that_doesnt_match")
-	assert.False(t, result)
-}
-
-func TestRevolutPaymentService_WebhookSignatureValidation(t *testing.T) {
-	// Setup
-	config := &cfg.RevolutConfig{
-		APIKey:        "test_api_key",
-		BaseURL:       "https://sandbox-merchant.revolut.com",
-		IsSandbox:     true,
-		WebhookSecret: "test_webhook_secret",
-	}
-
-	service := &RevolutPaymentService{
-		config:        config,
-		webhookSecret: config.WebhookSecret, // Set the webhook secret directly
-	}
-
-	// Test data
-	payload := []byte(`{"event":"ORDER_COMPLETED","order_id":"test_order_123"}`)
-
-	// Test with valid signature format but wrong signature
-	validSignature := "v1=09a9989dd8d9282c1d34974fc730f5cbfc4f4296941247e90ae5256590a11e8c"
-	result := service.validateWebhookSignature(payload, validSignature)
-	assert.False(t, result) // Should be false because signature doesn't match
-
-	// Test with invalid signature format
-	invalidSignature := "invalid_signature_format"
-	result = service.validateWebhookSignature(payload, invalidSignature)
+	// Test with invalid signature
+	invalidSignature := "v1=invalid_signature"
+	result = service.validateWebhookSignature(payload, invalidSignature, timestamp)
 	assert.False(t, result)
 
 	// Test with empty signature
-	result = service.validateWebhookSignature(payload, "")
+	result = service.validateWebhookSignature(payload, "", timestamp)
 	assert.False(t, result)
 
-	// Test with missing v1= prefix
-	noPrefixSignature := "09a9989dd8d9282c1d34974fc730f5cbfc4f4296941247e90ae5256590a11e8c"
-	result = service.validateWebhookSignature(payload, noPrefixSignature)
+	// Test with malformed signature
+	result = service.validateWebhookSignature(payload, "invalid_format", timestamp)
 	assert.False(t, result)
 
-	// Test with empty webhook secret (should return true)
+	// Test with empty webhook secret (should skip validation)
 	service.webhookSecret = ""
-	result = service.validateWebhookSignature(payload, validSignature)
-	assert.True(t, result)
+	result = service.validateWebhookSignature(payload, validSignature, timestamp)
+	assert.True(t, result, "Should skip validation when webhook secret is empty")
+
+	// Test with different timestamp
+	differentTimestamp := "1683650202361"
+	service.webhookSecret = config.WebhookSecret // Restore the secret
+	result = service.validateWebhookSignature(payload, validSignature, differentTimestamp)
+	assert.False(t, result, "Should fail with different timestamp")
+
+	// Test with different payload
+	differentPayload := []byte(`{"event": "ORDER_COMPLETED", "order_id": "different-order-id"}`)
+	result = service.validateWebhookSignature(differentPayload, validSignature, timestamp)
+	assert.False(t, result, "Should fail with different payload")
+}
+
+func TestRevolutPaymentService_WebhookSignatureValidationWithTimestamp(t *testing.T) {
+	config := &cfg.RevolutConfig{
+		APIKey:        "test_api_key",
+		BaseURL:       "https://sandbox-merchant.revolut.com",
+		WebhookSecret: "wsk_r59a4HfWVAKycbCaNO1RvgCJec02gRd8",
+		IsSandbox:     true,
+	}
+
+	service := &RevolutPaymentService{
+		webhookSecret: config.WebhookSecret,
+		config:        config,
+	}
+
+	// Test data from Revolut documentation example
+	rawPayload := `{"event": "ORDER_COMPLETED","order_id": "9fc01989-3f61-4484-a5d9-ffe768531be9","merchant_order_ext_ref": "Test #3928"}`
+	timestamp := "1683650202360"
+
+	// Create the signature as Revolut would
+	payloadToSign := fmt.Sprintf("v1.%s.%s", timestamp, rawPayload)
+	h := hmac.New(sha256.New, []byte(config.WebhookSecret))
+	h.Write([]byte(payloadToSign))
+	computedSignature := hex.EncodeToString(h.Sum(nil))
+
+	// Test the validation function with our computed signature
+	isValid := service.validateWebhookSignature([]byte(rawPayload), "v1="+computedSignature, timestamp)
+	assert.True(t, isValid, "Signature validation should pass with correct data")
+
+	// Test with wrong signature
+	isValid = service.validateWebhookSignature([]byte(rawPayload), "v1=wrongsignature", timestamp)
+	assert.False(t, isValid, "Signature validation should fail with wrong signature")
+
+	// Test with wrong timestamp
+	isValid = service.validateWebhookSignature([]byte(rawPayload), "v1="+computedSignature, "1683650202361")
+	assert.False(t, isValid, "Signature validation should fail with wrong timestamp")
+
+	// Test with wrong payload
+	wrongPayload := `{"event": "ORDER_COMPLETED","order_id": "different-id","merchant_order_ext_ref": "Test #3928"}`
+	isValid = service.validateWebhookSignature([]byte(wrongPayload), "v1="+computedSignature, timestamp)
+	assert.False(t, isValid, "Signature validation should fail with wrong payload")
 }
 
 func TestRevolutOrderRequest_JSONStructure(t *testing.T) {

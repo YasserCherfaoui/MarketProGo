@@ -388,7 +388,7 @@ func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 	}
 
 	// Process webhook
-	if err := h.paymentService.HandleWebhook(c.Request.Context(), body, signature); err != nil {
+	if err := h.paymentService.HandleWebhook(c.Request.Context(), body, signature, timestamp); err != nil {
 		log.Printf("[DEBUG] Error processing webhook: %v", err)
 		response.GenerateErrorResponse(c, http.StatusBadRequest, "WEBHOOK_PROCESSING_FAILED", err.Error())
 		return

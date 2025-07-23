@@ -152,7 +152,7 @@ func (s *RevolutPaymentService) CreatePayment(ctx context.Context, req *PaymentR
 	payment := &models.Payment{
 		OrderID:          req.OrderID,
 		RevolutOrderID:   revolutResp.ID,
-		RevolutPaymentID: "", // Will be set when payment is completed
+		RevolutPaymentID: revolutResp.ID, // The order ID from Revolut is actually the payment ID
 		Amount:           req.Amount,
 		Currency:         req.Currency,
 		Status:           models.RevolutPaymentStatusPending,
@@ -219,6 +219,9 @@ func (s *RevolutPaymentService) GetPaymentStatus(ctx context.Context, paymentID 
 			if newStatus == models.RevolutPaymentStatusCompleted {
 				now := time.Now()
 				payment.CompletedAt = &now
+
+				// The RevolutPaymentID is already set during order creation
+				// No need to set it again here
 			}
 
 			if err := s.db.WithContext(ctx).Save(&payment).Error; err != nil {
@@ -226,9 +229,10 @@ func (s *RevolutPaymentService) GetPaymentStatus(ctx context.Context, paymentID 
 			} else {
 				// Log status change
 				s.logPaymentEvent(ctx, payment.ID, "status_changed", "Payment status updated", map[string]interface{}{
-					"old_status":    oldStatus,
-					"new_status":    newStatus,
-					"revolut_state": revolutOrder.State,
+					"old_status":         oldStatus,
+					"new_status":         newStatus,
+					"revolut_state":      revolutOrder.State,
+					"revolut_payment_id": payment.RevolutPaymentID,
 				})
 			}
 		}
@@ -357,9 +361,9 @@ func (s *RevolutPaymentService) CancelPayment(ctx context.Context, paymentID str
 // Headers expected:
 // - Revolut-Signature: v1=signature (hex-encoded HMAC-SHA256)
 // - Revolut-Request-Timestamp: UNIX timestamp of the webhook event
-func (s *RevolutPaymentService) HandleWebhook(ctx context.Context, payload []byte, signature string) error {
+func (s *RevolutPaymentService) HandleWebhook(ctx context.Context, payload []byte, signature string, timestamp string) error {
 	// Validate webhook signature
-	if !s.validateWebhookSignature(payload, signature) {
+	if !s.validateWebhookSignature(payload, signature, timestamp) {
 		return fmt.Errorf("invalid webhook signature")
 	}
 
@@ -449,8 +453,8 @@ func (s *RevolutPaymentService) mapRevolutStatusToPaymentStatus(revolutState str
 }
 
 // validateWebhookSignature validates the webhook signature according to Revolut's security requirements
-// Revolut uses the format: v1=signature where v1 is the algorithm version and signature is hex-encoded
-func (s *RevolutPaymentService) validateWebhookSignature(payload []byte, signature string) bool {
+// Based on: https://developer.revolut.com/docs/guides/accept-payments/tutorials/work-with-webhooks/verify-the-payload-signature
+func (s *RevolutPaymentService) validateWebhookSignature(payload []byte, signature string, timestamp string) bool {
 	if s.webhookSecret == "" {
 		log.Printf("Warning: webhook secret not configured, skipping signature validation")
 		return true
@@ -465,16 +469,27 @@ func (s *RevolutPaymentService) validateWebhookSignature(payload []byte, signatu
 	// Extract the actual signature (remove "v1=" prefix)
 	actualSignature := signature[3:]
 
-	// Create HMAC-SHA256 signature using the webhook secret
+	// Step 1: Prepare the payload to sign
+	// payload_to_sign = v1.{timestamp}.{raw-payload}
+	payloadToSign := fmt.Sprintf("v1.%s.%s", timestamp, string(payload))
+	log.Printf("[DEBUG] Payload to sign: %s", payloadToSign)
+
+	// Step 2: Compute the expected signature using HMAC-SHA256
+	// Use the webhook secret as the key and the prepared payload as the message
 	h := hmac.New(sha256.New, []byte(s.webhookSecret))
-	h.Write(payload)
+	h.Write([]byte(payloadToSign))
 	expectedSignature := hex.EncodeToString(h.Sum(nil))
 
-	// Compare signatures using constant-time comparison
+	// Step 3: Compare signatures using constant-time comparison
 	isValid := hmac.Equal([]byte(actualSignature), []byte(expectedSignature))
 
 	if !isValid {
 		log.Printf("Signature validation failed. Expected: %s, Received: %s", expectedSignature, actualSignature)
+		log.Printf("[DEBUG] Webhook secret length: %d", len(s.webhookSecret))
+		log.Printf("[DEBUG] Payload length: %d", len(payload))
+		log.Printf("[DEBUG] Timestamp: %s", timestamp)
+	} else {
+		log.Printf("[DEBUG] Signature validation successful")
 	}
 
 	return isValid
@@ -487,11 +502,16 @@ func (s *RevolutPaymentService) processWebhookEvent(ctx context.Context, payment
 	event, _ := webhookData["event"].(string)
 	orderID, _ := webhookData["order_id"].(string)
 
+	// The order_id from webhook is the same as the RevolutPaymentID we stored during order creation
+	// No need to extract payment_id since it doesn't exist in webhook payload
+	// The order_id in webhook corresponds to the id from order creation response
+
 	// Log the webhook event first
 	s.logPaymentEvent(ctx, payment.ID, "webhook_received", fmt.Sprintf("Webhook event: %s", event), map[string]interface{}{
-		"webhook_event":    event,
-		"revolut_order_id": orderID,
-		"webhook_data":     webhookData,
+		"webhook_event":      event,
+		"revolut_order_id":   orderID,
+		"revolut_payment_id": payment.RevolutPaymentID,
+		"webhook_data":       webhookData,
 	})
 
 	// Handle different webhook events
@@ -518,6 +538,10 @@ func (s *RevolutPaymentService) handleOrderCompleted(ctx context.Context, paymen
 	now := time.Now()
 	payment.CompletedAt = &now
 
+	// The RevolutPaymentID is already set during order creation
+	// No need to extract from webhook since payment_id doesn't exist in webhook payload
+	// The order_id in webhook corresponds to the RevolutPaymentID we already have
+
 	// Update order status to PAID
 	var order models.Order
 	if err := s.db.WithContext(ctx).First(&order, payment.OrderID).Error; err != nil {
@@ -537,9 +561,10 @@ func (s *RevolutPaymentService) handleOrderCompleted(ctx context.Context, paymen
 
 	// Log the status change
 	s.logPaymentEvent(ctx, payment.ID, "payment_completed", "Payment completed successfully", map[string]interface{}{
-		"old_status":   oldStatus,
-		"new_status":   payment.Status,
-		"completed_at": now,
+		"old_status":         oldStatus,
+		"new_status":         payment.Status,
+		"completed_at":       now,
+		"revolut_payment_id": payment.RevolutPaymentID,
 	})
 
 	return nil
@@ -643,4 +668,28 @@ func (s *RevolutPaymentService) logPaymentEvent(ctx context.Context, paymentID u
 	if err := s.db.WithContext(ctx).Create(paymentLog).Error; err != nil {
 		log.Printf("Warning: failed to log payment event: %v", err)
 	}
+}
+
+// UpdateRevolutPaymentID manually updates the RevolutPaymentID for a payment
+// This can be used when the payment ID is obtained from other sources
+func (s *RevolutPaymentService) UpdateRevolutPaymentID(ctx context.Context, paymentID string, revolutPaymentID string) error {
+	var payment models.Payment
+	if err := s.db.WithContext(ctx).First(&payment, paymentID).Error; err != nil {
+		return fmt.Errorf("payment not found: %w", err)
+	}
+
+	oldPaymentID := payment.RevolutPaymentID
+	payment.RevolutPaymentID = revolutPaymentID
+
+	if err := s.db.WithContext(ctx).Save(&payment).Error; err != nil {
+		return fmt.Errorf("failed to update payment: %w", err)
+	}
+
+	// Log the update
+	s.logPaymentEvent(ctx, payment.ID, "payment_id_updated", "RevolutPaymentID updated", map[string]interface{}{
+		"old_revolut_payment_id": oldPaymentID,
+		"new_revolut_payment_id": revolutPaymentID,
+	})
+
+	return nil
 }
