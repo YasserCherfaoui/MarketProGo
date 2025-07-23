@@ -2,6 +2,7 @@ package payment
 
 import (
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -353,23 +354,29 @@ func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 	// Read request body
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
+		log.Printf("[DEBUG] Failed to read webhook request body: %v", err)
 		response.GenerateErrorResponse(c, http.StatusBadRequest, "INVALID_REQUEST", "Failed to read request body")
 		return
 	}
+	log.Printf("[DEBUG] Webhook request body read successfully: %d bytes", len(body))
 
 	// Get webhook signature from header
 	signature := c.GetHeader("Revolut-Signature")
 	if signature == "" {
+		log.Printf("[DEBUG] Missing Revolut-Signature header in webhook request")
 		response.GenerateErrorResponse(c, http.StatusBadRequest, "MISSING_SIGNATURE", "Webhook signature is required")
 		return
 	}
+	log.Printf("[DEBUG] Revolut-Signature header received: %s", signature)
 
 	// Process webhook
 	if err := h.paymentService.HandleWebhook(c.Request.Context(), body, signature); err != nil {
+		log.Printf("[DEBUG] Error processing webhook: %v", err)
 		response.GenerateErrorResponse(c, http.StatusBadRequest, "WEBHOOK_PROCESSING_FAILED", err.Error())
 		return
 	}
 
+	log.Printf("[DEBUG] Webhook processed successfully")
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Webhook processed successfully",
