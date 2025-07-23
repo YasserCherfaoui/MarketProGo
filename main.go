@@ -19,6 +19,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("FATAL: Could not load configuration: %v", err)
 	}
+
+	// Validate Revolut configuration
+	if cfg.Revolut.APIKey == "" {
+		log.Fatal("ERROR: REVOLUT_API_KEY environment variable is not set. Please configure your Revolut API credentials.")
+	}
+	if cfg.Revolut.BaseURL == "" {
+		log.Fatal("ERROR: Revolut base URL is not configured.")
+	}
+
+	log.Printf("Revolut configuration loaded - BaseURL: %s, IsSandbox: %t", cfg.Revolut.BaseURL, cfg.Revolut.IsSandbox)
+
 	r := gin.Default()
 	config := cors.Config{
 		AllowOrigins:     []string{"*", "http://localhost:5173", "http://127.0.0.1:5173"}, // Adjust origins
@@ -53,5 +64,4 @@ func main() {
 
 	routes.AppRoutes(r, db, gcsService, appwriteService, cfg)
 	r.Run()
-
 }

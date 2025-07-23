@@ -1,0 +1,20 @@
+{
+    "id": "bcd831e1-9556-4e25-8cf6-b2457be6b290",
+    "url": "https://shiny-tally-morningai-cbea4208.koyeb.app/api/v1/payments/webhook",
+    "events": [
+        "ORDER_CANCELLED",
+        "ORDER_PAYMENT_FAILED",
+        "PAYOUT_FAILED",
+        "ORDER_AUTHORISED",
+        "DISPUTE_UNDER_REVIEW",
+        "DISPUTE_WON",
+        "PAYOUT_COMPLETED",
+        "PAYOUT_INITIATED",
+        "DISPUTE_LOST",
+        "ORDER_COMPLETED",
+        "DISPUTE_ACTION_REQUIRED",
+        "ORDER_PAYMENT_AUTHENTICATED",
+        "ORDER_PAYMENT_DECLINED"
+    ],
+    "signing_secret": "wsk_e1Qonj6KKRipKeEFHWf7rJ2cZ6RDwNzX"
+}

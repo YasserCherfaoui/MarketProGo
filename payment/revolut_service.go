@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/cfg"
@@ -47,31 +48,105 @@ func (s *RevolutPaymentService) CreatePayment(ctx context.Context, req *PaymentR
 		return nil, fmt.Errorf("customer info is required")
 	}
 
+	// Validate Revolut configuration
+	if s.config.APIKey == "" {
+		return nil, fmt.Errorf("Revolut API key is not configured")
+	}
+	if s.config.BaseURL == "" {
+		return nil, fmt.Errorf("Revolut base URL is not configured")
+	}
+
+	// Debug logging
+	log.Printf("Creating Revolut payment for order %d, amount: %.2f %s", req.OrderID, req.Amount, req.Currency)
+	log.Printf("Revolut config - BaseURL: %s, IsSandbox: %t", s.config.BaseURL, s.config.IsSandbox)
+	log.Printf("API Key length: %d", len(s.config.APIKey))
+	log.Printf("API Key prefix: %s", s.config.APIKey[:10]+"...")
+
 	// Get order details
 	var order models.Order
 	if err := s.db.WithContext(ctx).First(&order, req.OrderID).Error; err != nil {
 		return nil, fmt.Errorf("failed to get order: %w", err)
 	}
 
-	// Create Revolut order request
-	revolutReq := &revolut.OrderRequest{
-		Amount:          req.Amount,
-		Currency:        req.Currency,
-		MerchantOrderID: strconv.FormatUint(uint64(req.OrderID), 10),
-		CustomerEmail:   req.CustomerInfo.Email,
-		CustomerName:    req.CustomerInfo.Name,
-		Description:     req.Description,
-		Metadata:        req.Metadata,
-		CaptureMode:     "AUTOMATIC", // Automatically capture payment
-		ReturnURL:       req.ReturnURL,
-		CancelURL:       req.CancelURL,
+	// Convert amount to minor units (cents) as required by Revolut API
+	amountInMinorUnits := int64(req.Amount * 100)
+	log.Printf("Converted amount: %d minor units", amountInMinorUnits)
+
+	// Validate minimum amount (Revolut requires at least 1 cent)
+	if amountInMinorUnits < 1 {
+		return nil, fmt.Errorf("amount must be at least 0.01")
 	}
+
+	// Validate and normalize currency
+	currency := req.Currency
+	if currency == "" {
+		currency = "GBP" // Default to GBP
+	}
+	// Ensure currency is uppercase
+	currency = strings.ToUpper(currency)
+	log.Printf("Using currency: %s", currency)
+
+	// Validate description
+	description := req.Description
+	if description == "" {
+		description = fmt.Sprintf("Order #%d", req.OrderID)
+	}
+	// Limit description length (Revolut might have limits)
+	if len(description) > 255 {
+		description = description[:252] + "..."
+	}
+	log.Printf("Using description: %s", description)
+
+	// Create customer info for Revolut
+	customer := &revolut.Customer{
+		FullName: req.CustomerInfo.Name,
+		Email:    req.CustomerInfo.Email,
+		Phone:    req.CustomerInfo.Phone,
+	}
+
+	// Validate customer data
+	if customer.FullName == "" {
+		return nil, fmt.Errorf("customer full name is required")
+	}
+	if customer.Email == "" {
+		return nil, fmt.Errorf("customer email is required")
+	}
+
+	log.Printf("Customer data: ID=%s, Name=%s, Email=%s, Phone=%s",
+		customer.ID, customer.FullName, customer.Email, customer.Phone)
+
+	// Create Revolut order request - simplified to avoid internal server errors
+	revolutReq := &revolut.OrderRequest{
+		Amount:           amountInMinorUnits,
+		Currency:         currency,
+		Description:      description,
+		Customer:         customer,
+		CaptureMode:      "automatic",
+		EnforceChallenge: "automatic",
+	}
+
+	// Only add redirect URL if it's provided
+	if req.ReturnURL != "" {
+		revolutReq.RedirectURL = req.ReturnURL
+	}
+
+	// Only add metadata if it's not empty
+	if req.Metadata != nil && len(req.Metadata) > 0 {
+		revolutReq.Metadata = req.Metadata
+	}
+
+	// Debug: Log the request as JSON to see exactly what's being sent
+	reqJSON, _ := json.MarshalIndent(revolutReq, "", "  ")
+	log.Printf("Revolut order request JSON:\n%s", string(reqJSON))
 
 	// Create order in Revolut
 	revolutResp, err := s.client.CreateOrder(revolutReq)
 	if err != nil {
+		log.Printf("Revolut API error: %v", err)
 		return nil, fmt.Errorf("failed to create Revolut order: %w", err)
 	}
+
+	log.Printf("Revolut order created successfully: %s", revolutResp.ID)
 
 	// Create payment record in database
 	payment := &models.Payment{
@@ -104,6 +179,7 @@ func (s *RevolutPaymentService) CreatePayment(ctx context.Context, req *PaymentR
 	s.logPaymentEvent(ctx, payment.ID, "payment_created", "Payment created successfully", map[string]interface{}{
 		"revolut_order_id": revolutResp.ID,
 		"checkout_url":     revolutResp.CheckoutURL,
+		"token":            revolutResp.Token,
 	})
 
 	return &PaymentResponse{
@@ -390,14 +466,12 @@ func (s *RevolutPaymentService) processWebhookEvent(ctx context.Context, payment
 	// Extract event type and order ID from webhook
 	event, _ := webhookData["event"].(string)
 	orderID, _ := webhookData["order_id"].(string)
-	merchantOrderExtRef, _ := webhookData["merchant_order_ext_ref"].(string)
 
 	// Log the webhook event first
 	s.logPaymentEvent(ctx, payment.ID, "webhook_received", fmt.Sprintf("Webhook event: %s", event), map[string]interface{}{
-		"webhook_event":          event,
-		"revolut_order_id":       orderID,
-		"merchant_order_ext_ref": merchantOrderExtRef,
-		"webhook_data":           webhookData,
+		"webhook_event":    event,
+		"revolut_order_id": orderID,
+		"webhook_data":     webhookData,
 	})
 
 	// Handle different webhook events

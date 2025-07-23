@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -40,37 +41,78 @@ func NewClient(config *cfg.RevolutConfig) *Client {
 	}
 }
 
-// OrderRequest represents a request to create a payment order
-type OrderRequest struct {
-	Amount          float64           `json:"amount"`
-	Currency        string            `json:"currency"`
-	MerchantOrderID string            `json:"merchant_order_id"`
-	CustomerEmail   string            `json:"customer_email"`
-	CustomerName    string            `json:"customer_name"`
-	Description     string            `json:"description"`
-	Metadata        map[string]string `json:"metadata,omitempty"`
-	CaptureMode     string            `json:"capture_mode,omitempty"` // MANUAL or AUTOMATIC
-	PaymentMethods  []string          `json:"payment_methods,omitempty"`
-	ReturnURL       string            `json:"return_url,omitempty"`
-	CancelURL       string            `json:"cancel_url,omitempty"`
+// Customer represents customer information for an order
+type Customer struct {
+	ID       string `json:"id,omitempty"`
+	FullName string `json:"full_name,omitempty"`
+	Phone    string `json:"phone,omitempty"`
+	Email    string `json:"email,omitempty"`
 }
 
-// OrderResponse represents a response from creating a payment order
+// LineItem represents a line item in an order
+type LineItem struct {
+	Name            string   `json:"name"`
+	Type            string   `json:"type"` // "physical" or "service"
+	Quantity        Quantity `json:"quantity"`
+	UnitPriceAmount int64    `json:"unit_price_amount"`
+	TotalAmount     int64    `json:"total_amount"`
+	ExternalID      string   `json:"external_id,omitempty"`
+	Description     string   `json:"description,omitempty"`
+	URL             string   `json:"url,omitempty"`
+	ImageURLs       []string `json:"image_urls,omitempty"`
+}
+
+// Quantity represents the quantity of a line item
+type Quantity struct {
+	Value float64 `json:"value"`
+	Unit  string  `json:"unit,omitempty"`
+}
+
+// OrderRequest represents a request to create an order according to Revolut Merchant API
+type OrderRequest struct {
+	Amount                    int64             `json:"amount"`
+	Currency                  string            `json:"currency"`
+	SettlementCurrency        string            `json:"settlement_currency,omitempty"`
+	Description               string            `json:"description,omitempty"`
+	Customer                  *Customer         `json:"customer,omitempty"`
+	EnforceChallenge          string            `json:"enforce_challenge,omitempty"` // "automatic" or "forced"
+	LineItems                 []LineItem        `json:"line_items,omitempty"`
+	Shipping                  interface{}       `json:"shipping,omitempty"`
+	CaptureMode               string            `json:"capture_mode,omitempty"` // "automatic" or "manual"
+	CancelAuthorisedAfter     string            `json:"cancel_authorised_after,omitempty"`
+	LocationID                string            `json:"location_id,omitempty"`
+	Metadata                  map[string]string `json:"metadata,omitempty"`
+	IndustryData              interface{}       `json:"industry_data,omitempty"`
+	MerchantOrderData         interface{}       `json:"merchant_order_data,omitempty"`
+	UpcomingPaymentData       interface{}       `json:"upcoming_payment_data,omitempty"`
+	RedirectURL               string            `json:"redirect_url,omitempty"`
+	StatementDescriptorSuffix string            `json:"statement_descriptor_suffix,omitempty"`
+}
+
+// OrderResponse represents a response from creating an order
 type OrderResponse struct {
-	ID              string            `json:"id"`
-	PublicID        string            `json:"public_id"`
-	Amount          float64           `json:"amount"`
-	Currency        string            `json:"currency"`
-	State           string            `json:"state"`
-	MerchantOrderID string            `json:"merchant_order_id"`
-	CustomerEmail   string            `json:"customer_email"`
-	CustomerName    string            `json:"customer_name"`
-	Description     string            `json:"description"`
-	Metadata        map[string]string `json:"metadata,omitempty"`
-	CreatedAt       string            `json:"created_at"`
-	UpdatedAt       string            `json:"updated_at"`
-	CheckoutURL     string            `json:"checkout_url,omitempty"`
-	PaymentMethods  []string          `json:"payment_methods,omitempty"`
+	ID                        string            `json:"id"`
+	Token                     string            `json:"token"`
+	Type                      string            `json:"type"`
+	State                     string            `json:"state"`
+	CreatedAt                 string            `json:"created_at"`
+	UpdatedAt                 string            `json:"updated_at"`
+	Amount                    int64             `json:"amount"`
+	Currency                  string            `json:"currency"`
+	OutstandingAmount         int64             `json:"outstanding_amount"`
+	CaptureMode               string            `json:"capture_mode"`
+	CheckoutURL               string            `json:"checkout_url"`
+	EnforceChallenge          string            `json:"enforce_challenge"`
+	Description               string            `json:"description,omitempty"`
+	Customer                  *Customer         `json:"customer,omitempty"`
+	LineItems                 []LineItem        `json:"line_items,omitempty"`
+	Shipping                  interface{}       `json:"shipping,omitempty"`
+	Metadata                  map[string]string `json:"metadata,omitempty"`
+	IndustryData              interface{}       `json:"industry_data,omitempty"`
+	MerchantOrderData         interface{}       `json:"merchant_order_data,omitempty"`
+	UpcomingPaymentData       interface{}       `json:"upcoming_payment_data,omitempty"`
+	RedirectURL               string            `json:"redirect_url,omitempty"`
+	StatementDescriptorSuffix string            `json:"statement_descriptor_suffix,omitempty"`
 }
 
 // RefundRequest represents a request to refund a payment
@@ -106,9 +148,9 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
-// CreateOrder creates a new payment order
+// CreateOrder creates a new order using the Revolut Merchant API
 func (c *Client) CreateOrder(req *OrderRequest) (*OrderResponse, error) {
-	url := fmt.Sprintf("%s/api/1.0/orders", c.baseURL)
+	url := fmt.Sprintf("%s/api/orders", c.baseURL)
 
 	jsonData, err := json.Marshal(req)
 	if err != nil {
@@ -120,9 +162,11 @@ func (c *Client) CreateOrder(req *OrderRequest) (*OrderResponse, error) {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
-	// Set headers
+	// Set headers according to Revolut API documentation
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Revolut-Api-Version", "2024-09-01") // Use stable API version
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -138,8 +182,12 @@ func (c *Client) CreateOrder(req *OrderRequest) (*OrderResponse, error) {
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		var errorResp ErrorResponse
 		if err := json.Unmarshal(body, &errorResp); err != nil {
+			// Log the raw response for debugging
+			log.Printf("Failed to unmarshal error response. Status: %d, Body: %s", resp.StatusCode, string(body))
 			return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 		}
+		// Log detailed error information
+		log.Printf("Revolut API error - Status: %d, Code: %s, Message: %s", resp.StatusCode, errorResp.Code, errorResp.Message)
 		return nil, fmt.Errorf("API request failed: %s - %s", errorResp.Code, errorResp.Message)
 	}
 
@@ -153,7 +201,7 @@ func (c *Client) CreateOrder(req *OrderRequest) (*OrderResponse, error) {
 
 // GetOrder retrieves an order by ID
 func (c *Client) GetOrder(orderID string) (*OrderResponse, error) {
-	url := fmt.Sprintf("%s/api/1.0/orders/%s", c.baseURL, orderID)
+	url := fmt.Sprintf("%s/api/orders/%s", c.baseURL, orderID)
 
 	httpReq, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	if err != nil {
@@ -161,7 +209,9 @@ func (c *Client) GetOrder(orderID string) (*OrderResponse, error) {
 	}
 
 	// Set headers
+	httpReq.Header.Set("Accept", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Revolut-Api-Version", "2023-09-01") // Use stable API version
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
