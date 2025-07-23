@@ -77,6 +77,48 @@ func TestRevolutPaymentService_ValidateWebhookSignature(t *testing.T) {
 	assert.False(t, result)
 }
 
+func TestRevolutPaymentService_WebhookSignatureValidation(t *testing.T) {
+	// Setup
+	config := &cfg.RevolutConfig{
+		APIKey:        "test_api_key",
+		BaseURL:       "https://sandbox-merchant.revolut.com",
+		IsSandbox:     true,
+		WebhookSecret: "test_webhook_secret",
+	}
+
+	service := &RevolutPaymentService{
+		config:        config,
+		webhookSecret: config.WebhookSecret, // Set the webhook secret directly
+	}
+
+	// Test data
+	payload := []byte(`{"event":"ORDER_COMPLETED","order_id":"test_order_123"}`)
+
+	// Test with valid signature format but wrong signature
+	validSignature := "v1=09a9989dd8d9282c1d34974fc730f5cbfc4f4296941247e90ae5256590a11e8c"
+	result := service.validateWebhookSignature(payload, validSignature)
+	assert.False(t, result) // Should be false because signature doesn't match
+
+	// Test with invalid signature format
+	invalidSignature := "invalid_signature_format"
+	result = service.validateWebhookSignature(payload, invalidSignature)
+	assert.False(t, result)
+
+	// Test with empty signature
+	result = service.validateWebhookSignature(payload, "")
+	assert.False(t, result)
+
+	// Test with missing v1= prefix
+	noPrefixSignature := "09a9989dd8d9282c1d34974fc730f5cbfc4f4296941247e90ae5256590a11e8c"
+	result = service.validateWebhookSignature(payload, noPrefixSignature)
+	assert.False(t, result)
+
+	// Test with empty webhook secret (should return true)
+	service.webhookSecret = ""
+	result = service.validateWebhookSignature(payload, validSignature)
+	assert.True(t, result)
+}
+
 func TestRevolutOrderRequest_JSONStructure(t *testing.T) {
 	// Test the JSON structure of a minimal order request
 	req := &revolut.OrderRequest{

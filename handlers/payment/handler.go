@@ -1,10 +1,12 @@
 package payment
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/payment"
@@ -369,6 +371,22 @@ func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 	}
 	log.Printf("[DEBUG] Revolut-Signature header received: %s", signature)
 
+	// Get webhook timestamp from header for additional security
+	timestamp := c.GetHeader("Revolut-Request-Timestamp")
+	if timestamp == "" {
+		log.Printf("[DEBUG] Missing Revolut-Request-Timestamp header in webhook request")
+		response.GenerateErrorResponse(c, http.StatusBadRequest, "MISSING_TIMESTAMP", "Webhook timestamp is required")
+		return
+	}
+	log.Printf("[DEBUG] Revolut-Request-Timestamp header received: %s", timestamp)
+
+	// Validate timestamp (optional but recommended for security)
+	if err := h.validateWebhookTimestamp(timestamp); err != nil {
+		log.Printf("[DEBUG] Webhook timestamp validation failed: %v", err)
+		response.GenerateErrorResponse(c, http.StatusBadRequest, "INVALID_TIMESTAMP", err.Error())
+		return
+	}
+
 	// Process webhook
 	if err := h.paymentService.HandleWebhook(c.Request.Context(), body, signature); err != nil {
 		log.Printf("[DEBUG] Error processing webhook: %v", err)
@@ -381,4 +399,32 @@ func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 		"success": true,
 		"message": "Webhook processed successfully",
 	})
+}
+
+// validateWebhookTimestamp validates the webhook timestamp to prevent replay attacks
+// Revolut sends timestamps in milliseconds since epoch
+func (h *PaymentHandler) validateWebhookTimestamp(timestamp string) error {
+	// Parse timestamp (milliseconds since epoch)
+	ts, err := strconv.ParseInt(timestamp, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid timestamp format: %w", err)
+	}
+
+	// Convert to seconds
+	webhookTime := time.Unix(ts/1000, (ts%1000)*1000000)
+	now := time.Now()
+
+	// Allow webhook to be up to 5 minutes old (to account for network delays)
+	maxAge := 5 * time.Minute
+	if now.Sub(webhookTime) > maxAge {
+		return fmt.Errorf("webhook timestamp is too old: %v (max age: %v)", webhookTime, maxAge)
+	}
+
+	// Allow webhook to be up to 1 minute in the future (to account for clock skew)
+	maxFuture := 1 * time.Minute
+	if webhookTime.Sub(now) > maxFuture {
+		return fmt.Errorf("webhook timestamp is too far in the future: %v (max future: %v)", webhookTime, maxFuture)
+	}
+
+	return nil
 }

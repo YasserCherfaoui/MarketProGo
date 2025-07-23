@@ -354,6 +354,9 @@ func (s *RevolutPaymentService) CancelPayment(ctx context.Context, paymentID str
 }
 
 // HandleWebhook processes webhook notifications from Revolut
+// Headers expected:
+// - Revolut-Signature: v1=signature (hex-encoded HMAC-SHA256)
+// - Revolut-Request-Timestamp: UNIX timestamp of the webhook event
 func (s *RevolutPaymentService) HandleWebhook(ctx context.Context, payload []byte, signature string) error {
 	// Validate webhook signature
 	if !s.validateWebhookSignature(payload, signature) {
@@ -445,19 +448,36 @@ func (s *RevolutPaymentService) mapRevolutStatusToPaymentStatus(revolutState str
 	}
 }
 
-// validateWebhookSignature validates the webhook signature
+// validateWebhookSignature validates the webhook signature according to Revolut's security requirements
+// Revolut uses the format: v1=signature where v1 is the algorithm version and signature is hex-encoded
 func (s *RevolutPaymentService) validateWebhookSignature(payload []byte, signature string) bool {
 	if s.webhookSecret == "" {
 		log.Printf("Warning: webhook secret not configured, skipping signature validation")
 		return true
 	}
 
-	// Create HMAC-SHA256 signature
+	// Parse the signature format: v1=signature
+	if len(signature) < 3 || signature[:2] != "v1" || signature[2] != '=' {
+		log.Printf("Invalid signature format: %s", signature)
+		return false
+	}
+
+	// Extract the actual signature (remove "v1=" prefix)
+	actualSignature := signature[3:]
+
+	// Create HMAC-SHA256 signature using the webhook secret
 	h := hmac.New(sha256.New, []byte(s.webhookSecret))
 	h.Write(payload)
 	expectedSignature := hex.EncodeToString(h.Sum(nil))
 
-	return hmac.Equal([]byte(signature), []byte(expectedSignature))
+	// Compare signatures using constant-time comparison
+	isValid := hmac.Equal([]byte(actualSignature), []byte(expectedSignature))
+
+	if !isValid {
+		log.Printf("Signature validation failed. Expected: %s, Received: %s", expectedSignature, actualSignature)
+	}
+
+	return isValid
 }
 
 // processWebhookEvent processes a webhook event and updates payment status
