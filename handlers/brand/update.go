@@ -22,12 +22,16 @@ func (h *BrandHandler) UpdateBrand(c *gin.Context) {
 	isDisplayedStr := c.DefaultPostForm("is_displayed", "true")
 	isDisplayed := isDisplayedStr == "true" || isDisplayedStr == "1"
 
-	// Handle parent brand update
+	// Handle parent brand update, including unlinking if "null" is sent
 	if pid := c.PostForm("parent_id"); pid != "" {
-		var id uint
-		_, err := fmt.Sscanf(pid, "%d", &id)
-		if err == nil {
-			brand.ParentID = &id
+		if pid == "null" {
+			brand.ParentID = nil
+		} else {
+			var id uint
+			_, err := fmt.Sscanf(pid, "%d", &id)
+			if err == nil {
+				brand.ParentID = &id
+			}
 		}
 	}
 
