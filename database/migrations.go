@@ -43,6 +43,7 @@ func RunMigrations(db *gorm.DB) error {
 		{"008_add_revolut_order_fields", addRevolutOrderFields},
 		{"009_create_email_tables", createEmailTables},
 		{"010_create_email_indexes", createEmailIndexes},
+		{"011_create_wishlist_tables", createWishlistTables},
 	}
 
 	// Run each migration
@@ -715,5 +716,35 @@ func createEmailIndexes(db *gorm.DB) error {
 	}
 
 	fmt.Println("Successfully created email indexes")
+	return nil
+}
+
+// createWishlistTables creates the wishlist-related tables
+func createWishlistTables(db *gorm.DB) error {
+	// Create Wishlist table
+	if err := db.AutoMigrate(&models.Wishlist{}); err != nil {
+		return fmt.Errorf("failed to create wishlists table: %w", err)
+	}
+
+	// Create WishlistItem table
+	if err := db.AutoMigrate(&models.WishlistItem{}); err != nil {
+		return fmt.Errorf("failed to create wishlist_items table: %w", err)
+	}
+
+	// Create indexes for wishlist tables
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_wishlists_user_id ON wishlists(user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_wishlist_items_wishlist_id ON wishlist_items(wishlist_id)",
+		"CREATE INDEX IF NOT EXISTS idx_wishlist_items_product_variant_id ON wishlist_items(product_variant_id)",
+		"CREATE INDEX IF NOT EXISTS idx_wishlist_items_priority ON wishlist_items(priority)",
+	}
+
+	for _, index := range indexes {
+		if err := db.Exec(index).Error; err != nil {
+			return fmt.Errorf("failed to create wishlist index: %w", err)
+		}
+	}
+
+	fmt.Println("Successfully created wishlist tables and indexes")
 	return nil
 }

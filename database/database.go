@@ -79,6 +79,8 @@ func ConnectDB() (*gorm.DB, error) {
 			&models.StockMovement{},
 			&models.Promotion{},
 			&models.ProductVariantPriceTier{},
+			&models.Wishlist{},
+			&models.WishlistItem{},
 
 			&models.Email{},
 			&models.EmailTemplate{},

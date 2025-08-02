@@ -36,6 +36,7 @@ func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService, appwriteSe
 	UserRoutes(router, db)
 	CarouselRoutes(router, db, gcsService, appwriteService)
 	CartRoutes(router, db)
+	WishlistRoutes(router, db)
 	OrderRoutes(router, orderHandler)
 	InventoryRoutes(router, inventoryHandler)
 
