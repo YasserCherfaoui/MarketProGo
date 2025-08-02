@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Alert - Algeria Market</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 300;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .alert-icon {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .alert-icon .shield {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #dc3545;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 30px;
+        }
+        .security-details {
+            background-color: #fff5f5;
+            border: 1px solid #fed7d7;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        .security-details h3 {
+            margin-top: 0;
+            color: #c53030;
+            font-size: 18px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #fed7d7;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #c53030;
+        }
+        .detail-value {
+            color: #2d3748;
+        }
+        .action-buttons {
+            text-align: center;
+            margin: 30px 0;
+        }
+        .primary-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            margin: 10px 5px;
+        }
+        .secondary-button {
+            display: inline-block;
+            background-color: #6c757d;
+            color: white;
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin: 10px 5px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .social-links {
+            margin-top: 20px;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #6c757d;
+            text-decoration: none;
+        }
+        .warning-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .warning-box h4 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .help-section {
+            background-color: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .help-section h4 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 20px;
+            }
+            .header {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Security Alert</h1>
+            <p>Important account security notification</p>
+        </div>
+        
+        <div class="content">
+            <div class="alert-icon">
+                <div class="shield">🛡️</div>
+            </div>
+            
+            <h2>Hello {{.UserName}},</h2>
+            
+            <p>We detected suspicious activity on your Algeria Market account that requires your immediate attention.</p>
+            
+            <div class="security-details">
+                <h3>Security Event Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Event Type:</span>
+                    <span class="detail-value">{{.EventType}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Date & Time:</span>
+                    <span class="detail-value">{{.EventDateTime}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Location:</span>
+                    <span class="detail-value">{{.Location}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Device:</span>
+                    <span class="detail-value">{{.Device}}</span>
+                </div>
+                {{if .IPAddress}}
+                <div class="detail-row">
+                    <span class="detail-label">IP Address:</span>
+                    <span class="detail-value">{{.IPAddress}}</span>
+                </div>
+                {{end}}
+            </div>
+            
+            {{if eq .EventType "login_attempt"}}
+            <div class="warning-box">
+                <h4>⚠️ Unusual Login Attempt</h4>
+                <p>We detected a login attempt from an unrecognized device or location. If this was you, no action is needed. If this wasn't you, please secure your account immediately.</p>
+            </div>
+            {{else if eq .EventType "password_change"}}
+            <div class="warning-box">
+                <h4>🔐 Password Changed</h4>
+                <p>Your account password was recently changed. If you initiated this change, no action is needed. If you didn't change your password, please secure your account immediately.</p>
+            </div>
+            {{else if eq .EventType "account_locked"}}
+            <div class="warning-box">
+                <h4>🔒 Account Temporarily Locked</h4>
+                <p>Your account has been temporarily locked due to multiple failed login attempts. This is a security measure to protect your account.</p>
+            </div>
+            {{end}}
+            
+            <div class="action-buttons">
+                {{if eq .EventType "login_attempt"}}
+                <a href="{{.SecureAccountURL}}" class="primary-button">Secure My Account</a>
+                <a href="{{.ViewActivityURL}}" class="secondary-button">View Account Activity</a>
+                {{else if eq .EventType "password_change"}}
+                <a href="{{.ResetPasswordURL}}" class="primary-button">Reset Password</a>
+                <a href="{{.ViewActivityURL}}" class="secondary-button">View Account Activity</a>
+                {{else if eq .EventType "account_locked"}}
+                <a href="{{.UnlockAccountURL}}" class="primary-button">Unlock Account</a>
+                <a href="{{.ContactSupportURL}}" class="secondary-button">Contact Support</a>
+                {{end}}
+            </div>
+            
+            <div class="help-section">
+                <h4>🔒 How to Keep Your Account Secure</h4>
+                <ul>
+                    <li>Use a strong, unique password</li>
+                    <li>Enable two-factor authentication if available</li>
+                    <li>Never share your login credentials</li>
+                    <li>Log out from shared devices</li>
+                    <li>Monitor your account activity regularly</li>
+                </ul>
+            </div>
+            
+            <p>If you have any questions or need assistance, please contact our security team immediately. We're here to help keep your account safe.</p>
+            
+            <p>Best regards,<br>
+            The Algeria Market Security Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>This email was sent to {{.UserEmail}} because of a security event on your Algeria Market account.</p>
+            <p>© 2024 Algeria Market. All rights reserved.</p>
+            <div class="social-links">
+                <a href="#">Facebook</a> |
+                <a href="#">Twitter</a> |
+                <a href="#">Instagram</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

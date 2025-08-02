@@ -4,12 +4,9 @@ import (
 	"github.com/YasserCherfaoui/MarketProGo/handlers/order"
 	"github.com/YasserCherfaoui/MarketProGo/middlewares"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
-func OrderRoutes(router *gin.RouterGroup, db *gorm.DB) {
-	orderHandler := order.NewOrderHandler(db)
-
+func OrderRoutes(router *gin.RouterGroup, orderHandler *order.OrderHandler) {
 	// Customer order routes (require authentication)
 	orderRouter := router.Group("/orders")
 	orderRouter.Use(middlewares.AuthMiddleware())

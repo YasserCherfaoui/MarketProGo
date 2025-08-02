@@ -43,6 +43,8 @@ func ConnectDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Always run migrations for email models
+
 	if gin.Mode() == gin.ReleaseMode {
 		if err := db.AutoMigrate(
 			&models.Company{},
@@ -77,6 +79,9 @@ func ConnectDB() (*gorm.DB, error) {
 			&models.StockMovement{},
 			&models.Promotion{},
 			&models.ProductVariantPriceTier{},
+
+			&models.Email{},
+			&models.EmailTemplate{},
 		); err != nil {
 			return nil, err
 		}

@@ -5,9 +5,11 @@ import (
 
 	"github.com/YasserCherfaoui/MarketProGo/aw"
 	"github.com/YasserCherfaoui/MarketProGo/cfg"
+	"github.com/YasserCherfaoui/MarketProGo/email"
 	"github.com/YasserCherfaoui/MarketProGo/gcs"
 	"github.com/YasserCherfaoui/MarketProGo/handlers/auth"
 	"github.com/YasserCherfaoui/MarketProGo/handlers/inventory"
+	"github.com/YasserCherfaoui/MarketProGo/handlers/order"
 	"github.com/YasserCherfaoui/MarketProGo/handlers/payment"
 	"github.com/YasserCherfaoui/MarketProGo/handlers/promotion"
 	"github.com/YasserCherfaoui/MarketProGo/handlers/review"
@@ -16,15 +18,16 @@ import (
 	"gorm.io/gorm"
 )
 
-func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService, appwriteService *aw.AppwriteService, config *cfg.AppConfig) {
+func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService, appwriteService *aw.AppwriteService, config *cfg.AppConfig, emailTriggerSvc *email.EmailTriggerService) {
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "pong",
 		})
 	})
 	router := r.Group("/api/v1")
-	authHandler := auth.NewAuthHandler(db)
+	authHandler := auth.NewAuthHandler(db, emailTriggerSvc)
 	inventoryHandler := inventory.NewInventoryHandler(db, gcsService, appwriteService)
+	orderHandler := order.NewOrderHandler(db, emailTriggerSvc)
 
 	AuthRoutes(router, authHandler)
 	CategoryRoutes(router, db, gcsService, appwriteService)
@@ -33,7 +36,7 @@ func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService, appwriteSe
 	UserRoutes(router, db)
 	CarouselRoutes(router, db, gcsService, appwriteService)
 	CartRoutes(router, db)
-	OrderRoutes(router, db)
+	OrderRoutes(router, orderHandler)
 	InventoryRoutes(router, inventoryHandler)
 
 	// Register Promotion routes

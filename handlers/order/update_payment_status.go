@@ -1,6 +1,7 @@
 package order
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
@@ -101,9 +102,10 @@ func (h *OrderHandler) UpdatePaymentStatus(c *gin.Context) {
 		}
 	}
 
+	// Save the updated order
 	if err := tx.Save(&order).Error; err != nil {
 		tx.Rollback()
-		response.GenerateInternalServerErrorResponse(c, "order/update_payment", "Failed to update payment status")
+		response.GenerateInternalServerErrorResponse(c, "order/update_payment", "Failed to update order")
 		return
 	}
 
@@ -113,19 +115,58 @@ func (h *OrderHandler) UpdatePaymentStatus(c *gin.Context) {
 		return
 	}
 
-	// Load the complete order with relationships for response
-	var completeOrder models.Order
-	if err := h.db.
-		Preload("User").
-		Preload("ShippingAddress").
-		Preload("Items.ProductVariant.Product").
-		Preload("Items.ProductVariant.Product.Images").
-		Preload("Items.ProductVariant.OptionValues").
-		Preload("Items.Product"). // Legacy support
-		First(&completeOrder, order.ID).Error; err != nil {
-		response.GenerateInternalServerErrorResponse(c, "order/update_payment", "Payment updated but failed to load details")
-		return
-	}
+	// Send payment status emails asynchronously
+	go func() {
+		// Load order with user data for email
+		var orderWithUser models.Order
+		if err := h.db.Preload("User").First(&orderWithUser, order.ID).Error; err != nil {
+			fmt.Printf("Failed to load order with user data: %v\n", err)
+			return
+		}
 
-	response.GenerateSuccessResponse(c, "Payment status updated successfully", completeOrder)
+		// Prepare payment data for email
+		paymentData := map[string]interface{}{
+			"order_number":   orderWithUser.OrderNumber,
+			"order_date":     orderWithUser.OrderDate,
+			"total_amount":   orderWithUser.FinalAmount,
+			"currency":       "DZD", // Default currency
+			"payment_method": orderWithUser.PaymentMethod,
+			"customer_name":  fmt.Sprintf("%s %s", orderWithUser.User.FirstName, orderWithUser.User.LastName),
+			"amount":         orderWithUser.FinalAmount,
+		}
+
+		switch req.PaymentStatus {
+		case models.PaymentStatusPaid:
+			// Send payment success email
+			if err := h.emailTriggerSvc.TriggerPaymentSuccess(
+				orderWithUser.ID,
+				orderWithUser.User.Email,
+				fmt.Sprintf("%s %s", orderWithUser.User.FirstName, orderWithUser.User.LastName),
+				paymentData,
+			); err != nil {
+				fmt.Printf("Failed to send payment success email: %v\n", err)
+			}
+
+		case models.PaymentStatusFailed:
+			// Add error message to payment data
+			paymentData["error_message"] = req.AdminNotes
+
+			// Send payment failed email to customer
+			if err := h.emailTriggerSvc.TriggerPaymentFailed(
+				orderWithUser.ID,
+				orderWithUser.User.Email,
+				fmt.Sprintf("%s %s", orderWithUser.User.FirstName, orderWithUser.User.LastName),
+				paymentData,
+			); err != nil {
+				fmt.Printf("Failed to send payment failed email: %v\n", err)
+			}
+
+			// Send admin notification for failed payment
+			if err := h.emailTriggerSvc.TriggerPaymentFailedAdminNotification(orderWithUser.ID, paymentData); err != nil {
+				fmt.Printf("Failed to send admin notification for failed payment: %v\n", err)
+			}
+		}
+	}()
+
+	response.GenerateSuccessResponse(c, "Payment status updated successfully", order)
 }

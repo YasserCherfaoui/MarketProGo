@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete Your Purchase - Algeria Market</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+            font-weight: 600;
+        }
+        .message {
+            font-size: 16px;
+            margin-bottom: 30px;
+            color: #666;
+        }
+        .cart-items {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .cart-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+        .cart-item:last-child {
+            margin-bottom: 0;
+        }
+        .item-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #667eea;
+            border-radius: 50%;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .item-content {
+            flex: 1;
+        }
+        .item-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .item-price {
+            color: #667eea;
+            font-weight: 600;
+        }
+        .discount-banner {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        .discount-code {
+            background-color: white;
+            color: #ee5a24;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 18px;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 20px 0;
+            transition: transform 0.2s ease;
+        }
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .expiry-notice {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            color: #856404;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .social-links {
+            margin-top: 20px;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Complete Your Purchase</h1>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                Hi {{.UserName}}, 👋
+            </div>
+            
+            <div class="message">
+                We noticed you left some items in your cart. Don't miss out on these great products!
+                Complete your purchase now and enjoy a special discount just for you.
+            </div>
+            
+            <div class="cart-items">
+                <h3 style="margin-top: 0; color: #333;">Your Cart Items:</h3>
+                
+                {{range .CartItems}}
+                <div class="cart-item">
+                    <div class="item-icon">🛍️</div>
+                    <div class="item-content">
+                        <div class="item-title">{{.Name}}</div>
+                        <div class="item-price">{{.Price}}</div>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            
+            <div class="discount-banner">
+                <h3 style="margin-top: 0;">Special Offer Just for You!</h3>
+                <p>Use this discount code to save {{.DiscountPercent}}% on your order:</p>
+                <div class="discount-code">{{.DiscountCode}}</div>
+                <p>This offer expires in {{.ExpiryTime}} hours!</p>
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="#" class="cta-button">Complete Your Purchase</a>
+            </div>
+            
+            <div class="expiry-notice">
+                <strong>⏰ Limited Time Offer!</strong><br>
+                This discount code expires in {{.ExpiryTime}} hours. Don't miss out!
+            </div>
+            
+            <div style="margin-top: 30px; padding: 20px; background-color: #e8f4fd; border-radius: 8px; border-left: 4px solid #667eea;">
+                <strong>Need Help?</strong><br>
+                Our customer support team is here to help you with any questions or concerns. 
+                Don't hesitate to reach out to us at <a href="mailto:support@algeriamarket.co.uk">support@algeriamarket.co.uk</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Thank you for choosing Algeria Market!</p>
+            <div class="social-links">
+                <a href="#">Facebook</a> |
+                <a href="#">Twitter</a> |
+                <a href="#">Instagram</a>
+            </div>
+            <p>&copy; 2024 Algeria Market. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html> 

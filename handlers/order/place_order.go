@@ -191,6 +191,34 @@ func (h *OrderHandler) PlaceOrder(c *gin.Context) {
 		return
 	}
 
+	// Send order confirmation email asynchronously
+	go func() {
+		// Prepare order data for email
+		orderData := map[string]interface{}{
+			"order_number":     completeOrder.OrderNumber,
+			"order_date":       completeOrder.OrderDate,
+			"total_amount":     completeOrder.FinalAmount,
+			"currency":         "DZD", // Default currency
+			"items":            completeOrder.Items,
+			"shipping_address": completeOrder.ShippingAddress,
+		}
+
+		// Send order confirmation to customer
+		if err := h.emailTriggerSvc.TriggerOrderConfirmation(
+			completeOrder.ID,
+			completeOrder.User.Email,
+			fmt.Sprintf("%s %s", completeOrder.User.FirstName, completeOrder.User.LastName),
+			orderData,
+		); err != nil {
+			fmt.Printf("Failed to send order confirmation email: %v\n", err)
+		}
+
+		// Send admin notification
+		if err := h.emailTriggerSvc.TriggerNewOrderAdminNotification(completeOrder.ID, orderData); err != nil {
+			fmt.Printf("Failed to send admin notification: %v\n", err)
+		}
+	}()
+
 	response.GenerateCreatedResponse(c, "Order placed successfully", completeOrder)
 }
 

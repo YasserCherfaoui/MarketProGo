@@ -41,6 +41,8 @@ func RunMigrations(db *gorm.DB) error {
 		{"006_add_user_avatar", addUserAvatar},
 		{"007_create_payment_tables", createPaymentTables},
 		{"008_add_revolut_order_fields", addRevolutOrderFields},
+		{"009_create_email_tables", createEmailTables},
+		{"010_create_email_indexes", createEmailIndexes},
 	}
 
 	// Run each migration
@@ -661,5 +663,57 @@ func addRevolutOrderFields(db *gorm.DB) error {
 	}
 
 	fmt.Println("Successfully added Revolut fields to orders table")
+	return nil
+}
+
+// createEmailTables creates the email-related tables
+func createEmailTables(db *gorm.DB) error {
+	// Create Email table
+	if err := db.AutoMigrate(&models.Email{}); err != nil {
+		return fmt.Errorf("failed to create emails table: %w", err)
+	}
+
+	// Create EmailTemplate table
+	if err := db.AutoMigrate(&models.EmailTemplate{}); err != nil {
+		return fmt.Errorf("failed to create email_templates table: %w", err)
+	}
+
+	// Set default values for sender email and name
+	if err := db.Exec("ALTER TABLE emails ALTER COLUMN sender_email SET DEFAULT 'enquirees@algeriamarket.co.uk'").Error; err != nil {
+		return fmt.Errorf("failed to set default sender email: %w", err)
+	}
+
+	if err := db.Exec("ALTER TABLE emails ALTER COLUMN sender_name SET DEFAULT 'Algeria Market'").Error; err != nil {
+		return fmt.Errorf("failed to set default sender name: %w", err)
+	}
+
+	fmt.Println("Successfully created email tables")
+	return nil
+}
+
+// createEmailIndexes creates indexes for email tables
+func createEmailIndexes(db *gorm.DB) error {
+	// Create indexes for efficient email queries
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_emails_type ON emails(type)",
+		"CREATE INDEX IF NOT EXISTS idx_emails_status ON emails(status)",
+		"CREATE INDEX IF NOT EXISTS idx_emails_sender_email ON emails(sender_email)",
+		"CREATE INDEX IF NOT EXISTS idx_emails_created_at ON emails(created_at)",
+		"CREATE INDEX IF NOT EXISTS idx_emails_sent_at ON emails(sent_at)",
+		"CREATE INDEX IF NOT EXISTS idx_emails_provider_id ON emails(provider_id)",
+		"CREATE INDEX IF NOT EXISTS idx_emails_retry_count ON emails(retry_count)",
+		"CREATE INDEX IF NOT EXISTS idx_email_templates_type ON email_templates(type)",
+		"CREATE INDEX IF NOT EXISTS idx_email_templates_name ON email_templates(name)",
+		"CREATE INDEX IF NOT EXISTS idx_email_templates_is_active ON email_templates(is_active)",
+		"CREATE INDEX IF NOT EXISTS idx_email_templates_version ON email_templates(version)",
+	}
+
+	for _, index := range indexes {
+		if err := db.Exec(index).Error; err != nil {
+			return fmt.Errorf("failed to create email index: %w", err)
+		}
+	}
+
+	fmt.Println("Successfully created email indexes")
 	return nil
 }

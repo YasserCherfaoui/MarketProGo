@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Status Update - Algeria Market</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 300;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-processing { background-color: #fff3cd; color: #856404; }
+        .status-shipped { background-color: #d1ecf1; color: #0c5460; }
+        .status-delivered { background-color: #d4edda; color: #155724; }
+        .status-cancelled { background-color: #f8d7da; color: #721c24; }
+        .order-details {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        .order-details h3 {
+            margin-top: 0;
+            color: #495057;
+            font-size: 18px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #6c757d;
+        }
+        .detail-value {
+            color: #495057;
+        }
+        .tracking-info {
+            background-color: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .tracking-info h4 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .social-links {
+            margin-top: 20px;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #6c757d;
+            text-decoration: none;
+        }
+        .status-timeline {
+            margin: 25px 0;
+        }
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .timeline-item.completed {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .timeline-item.current {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .timeline-item.pending {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+        .timeline-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        .timeline-item.completed .timeline-icon {
+            background-color: #28a745;
+            color: white;
+        }
+        .timeline-item.current .timeline-icon {
+            background-color: #ffc107;
+            color: #856404;
+        }
+        .timeline-item.pending .timeline-icon {
+            background-color: #6c757d;
+            color: white;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 20px;
+            }
+            .header {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Order Status Update</h1>
+            <p>Your order has been updated</p>
+        </div>
+        
+        <div class="content">
+            <h2>Hello {{.UserName}},</h2>
+            
+            <p>We have an update on your order <strong>{{.OrderNumber}}</strong>.</p>
+            
+            <div style="text-align: center; margin: 25px 0;">
+                <span class="status-badge status-{{.Status}}">{{.StatusDisplay}}</span>
+            </div>
+            
+            <div class="order-details">
+                <h3>Order Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Order Number:</span>
+                    <span class="detail-value">{{.OrderNumber}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Order Date:</span>
+                    <span class="detail-value">{{.OrderDate}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Current Status:</span>
+                    <span class="detail-value">{{.StatusDisplay}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Total Amount:</span>
+                    <span class="detail-value">{{.Currency}} {{.TotalAmount}}</span>
+                </div>
+            </div>
+            
+            {{if .TrackingNumber}}
+            <div class="tracking-info">
+                <h4>📦 Tracking Information</h4>
+                <p><strong>Tracking Number:</strong> {{.TrackingNumber}}</p>
+                {{if .CarrierName}}
+                <p><strong>Carrier:</strong> {{.CarrierName}}</p>
+                {{end}}
+                {{if .TrackingURL}}
+                <p><a href="{{.TrackingURL}}" target="_blank">Track Your Package</a></p>
+                {{end}}
+            </div>
+            {{end}}
+            
+            <div class="status-timeline">
+                <h4>Order Timeline</h4>
+                {{range .Timeline}}
+                <div class="timeline-item {{.Status}}">
+                    <div class="timeline-icon">
+                        {{if eq .Status "completed"}}✓{{else if eq .Status "current"}}●{{else}}○{{end}}
+                    </div>
+                    <div>
+                        <strong>{{.Title}}</strong><br>
+                        <small>{{.Date}}</small>
+                        {{if .Description}}
+                        <br><small>{{.Description}}</small>
+                        {{end}}
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            
+            {{if .EstimatedDelivery}}
+            <p><strong>Estimated Delivery:</strong> {{.EstimatedDelivery}}</p>
+            {{end}}
+            
+            <div style="text-align: center;">
+                <a href="{{.OrderStatusURL}}" class="cta-button">View Order Details</a>
+            </div>
+            
+            {{if eq .Status "shipped"}}
+            <p>Your order is on its way! You'll receive another update when it's delivered.</p>
+            {{else if eq .Status "delivered"}}
+            <p>Your order has been delivered! We hope you love your purchase. If you have any questions or need assistance, please don't hesitate to contact us.</p>
+            {{else if eq .Status "cancelled"}}
+            <p>Your order has been cancelled. If you have any questions about this cancellation, please contact our customer support team.</p>
+            {{else}}
+            <p>We're working hard to get your order to you as soon as possible. You'll receive another update when there's a change in your order status.</p>
+            {{end}}
+            
+            <p>Thank you for choosing Algeria Market!</p>
+            
+            <p>Best regards,<br>
+            The Algeria Market Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>This email was sent to {{.UserEmail}} because your order status was updated on Algeria Market.</p>
+            <p>© 2024 Algeria Market. All rights reserved.</p>
+            <div class="social-links">
+                <a href="#">Facebook</a> |
+                <a href="#">Twitter</a> |
+                <a href="#">Instagram</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

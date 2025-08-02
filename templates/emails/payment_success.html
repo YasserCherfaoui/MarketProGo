@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful - Algeria Market</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 300;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .success-icon {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .success-icon .checkmark {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: #28a745;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 30px;
+        }
+        .order-details {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        .order-details h3 {
+            margin-top: 0;
+            color: #495057;
+            font-size: 18px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #6c757d;
+        }
+        .detail-value {
+            color: #495057;
+        }
+        .amount {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .social-links {
+            margin-top: 20px;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #6c757d;
+            text-decoration: none;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                box-shadow: none;
+            }
+            .content {
+                padding: 20px;
+            }
+            .header {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Payment Successful!</h1>
+            <p>Thank you for your purchase</p>
+        </div>
+        
+        <div class="content">
+            <div class="success-icon">
+                <div class="checkmark">✓</div>
+            </div>
+            
+            <h2>Hello {{.UserName}},</h2>
+            
+            <p>Great news! Your payment has been processed successfully. We're excited to fulfill your order and get your items to you as soon as possible.</p>
+            
+            <div class="order-details">
+                <h3>Order Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Order Number:</span>
+                    <span class="detail-value">{{.OrderNumber}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Order Date:</span>
+                    <span class="detail-value">{{.OrderDate}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Payment Method:</span>
+                    <span class="detail-value">{{.PaymentMethod}}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Total Amount:</span>
+                    <span class="detail-value amount">{{.Currency}} {{.TotalAmount}}</span>
+                </div>
+            </div>
+            
+            <p>We'll send you another email once your order ships with tracking information. You can also check your order status anytime by logging into your account.</p>
+            
+            <div style="text-align: center;">
+                <a href="{{.OrderStatusURL}}" class="cta-button">View Order Status</a>
+            </div>
+            
+            <p>If you have any questions about your order, please don't hesitate to contact our customer support team. We're here to help!</p>
+            
+            <p>Thank you for choosing Algeria Market!</p>
+            
+            <p>Best regards,<br>
+            The Algeria Market Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>This email was sent to {{.UserEmail}} because you made a purchase on Algeria Market.</p>
+            <p>© 2024 Algeria Market. All rights reserved.</p>
+            <div class="social-links">
+                <a href="#">Facebook</a> |
+                <a href="#">Twitter</a> |
+                <a href="#">Instagram</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

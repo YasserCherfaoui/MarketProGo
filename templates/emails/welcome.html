@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Algeria Market</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+            font-weight: 600;
+        }
+        .message {
+            font-size: 16px;
+            margin-bottom: 30px;
+            color: #666;
+        }
+        .features {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+        .feature {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .feature:last-child {
+            margin-bottom: 0;
+        }
+        .feature-icon {
+            width: 20px;
+            height: 20px;
+            background-color: #667eea;
+            border-radius: 50%;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 20px 0;
+            transition: transform 0.2s ease;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .social-links {
+            margin-top: 20px;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to Algeria Market</h1>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                Welcome, {{.UserName}}! 🎉
+            </div>
+            
+            <div class="message">
+                Thank you for joining Algeria Market! We're excited to have you as part of our community. 
+                You now have access to our comprehensive marketplace with thousands of products from trusted sellers.
+            </div>
+            
+            <div class="features">
+                <h3 style="margin-top: 0; color: #333;">What you can do now:</h3>
+                
+                <div class="feature">
+                    <div class="feature-icon">✓</div>
+                    <span>Browse our extensive product catalog</span>
+                </div>
+                
+                <div class="feature">
+                    <div class="feature-icon">✓</div>
+                    <span>Shop from verified sellers</span>
+                </div>
+                
+                <div class="feature">
+                    <div class="feature-icon">✓</div>
+                    <span>Enjoy secure payment options</span>
+                </div>
+                
+                <div class="feature">
+                    <div class="feature-icon">✓</div>
+                    <span>Track your orders in real-time</span>
+                </div>
+                
+                <div class="feature">
+                    <div class="feature-icon">✓</div>
+                    <span>Get customer support when needed</span>
+                </div>
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="{{.SiteURL}}" class="button">Start Shopping</a>
+            </div>
+            
+            <div style="margin-top: 30px; padding: 20px; background-color: #e8f4fd; border-radius: 8px; border-left: 4px solid #667eea;">
+                <strong>Need Help?</strong><br>
+                Our customer support team is here to help you with any questions or concerns. 
+                Don't hesitate to reach out to us at <a href="mailto:support@algeriamarket.co.uk">support@algeriamarket.co.uk</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Thank you for choosing Algeria Market!</p>
+            <div class="social-links">
+                <a href="#">Facebook</a> |
+                <a href="#">Twitter</a> |
+                <a href="#">Instagram</a>
+            </div>
+            <p>&copy; 2024 Algeria Market. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html> 

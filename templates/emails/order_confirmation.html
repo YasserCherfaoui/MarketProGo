@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation - Algeria Market</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #555;
+        }
+        .order-info {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+        .order-details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .order-details:last-child {
+            margin-bottom: 0;
+            border-top: 1px solid #dee2e6;
+            padding-top: 15px;
+            font-weight: bold;
+        }
+        .items {
+            margin: 30px 0;
+        }
+        .item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .item:last-child {
+            border-bottom: none;
+        }
+        .item-details {
+            flex: 1;
+        }
+        .item-name {
+            font-weight: 600;
+            color: #333;
+        }
+        .item-quantity {
+            color: #666;
+            font-size: 14px;
+        }
+        .item-price {
+            font-weight: 600;
+            color: #667eea;
+        }
+        .shipping-info {
+            background-color: #e8f4fd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 16px;
+            margin: 20px 0;
+            transition: transform 0.2s ease;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .status {
+            display: inline-block;
+            background-color: #28a745;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Order Confirmation</h1>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                Hello {{.UserName}},
+            </div>
+            
+            <div style="margin-bottom: 30px;">
+                <p>Thank you for your order! We're excited to fulfill your request. Here are your order details:</p>
+            </div>
+            
+            <div class="order-info">
+                <div class="order-details">
+                    <span>Order Number:</span>
+                    <span><strong>{{.OrderNumber}}</strong></span>
+                </div>
+                <div class="order-details">
+                    <span>Order Date:</span>
+                    <span>{{.OrderDate.Format "January 2, 2006"}}</span>
+                </div>
+                <div class="order-details">
+                    <span>Status:</span>
+                    <span><span class="status">Confirmed</span></span>
+                </div>
+                <div class="order-details">
+                    <span>Total Amount:</span>
+                    <span><strong>£{{printf "%.2f" .TotalAmount}}</strong></span>
+                </div>
+            </div>
+            
+            <div class="items">
+                <h3 style="margin-top: 0; color: #333;">Order Items:</h3>
+                {{range .Items}}
+                <div class="item">
+                    <div class="item-details">
+                        <div class="item-name">{{.Name}}</div>
+                        <div class="item-quantity">Quantity: {{.Quantity}}</div>
+                    </div>
+                    <div class="item-price">£{{printf "%.2f" .Total}}</div>
+                </div>
+                {{end}}
+            </div>
+            
+            <div class="shipping-info">
+                <h4 style="margin-top: 0; color: #333;">Shipping Address:</h4>
+                <p style="margin: 10px 0;">
+                    {{.ShippingAddress.Street}}<br>
+                    {{.ShippingAddress.City}}, {{.ShippingAddress.State}} {{.ShippingAddress.ZipCode}}<br>
+                    {{.ShippingAddress.Country}}
+                </p>
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="{{.SiteURL}}/orders/{{.OrderNumber}}" class="button">Track Order</a>
+            </div>
+            
+            <div style="margin-top: 30px; padding: 20px; background-color: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+                <strong>What's Next?</strong><br>
+                You'll receive updates about your order status via email. 
+                You can also track your order anytime by logging into your account.
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Thank you for shopping with Algeria Market!</p>
+            <p>If you have any questions, please contact us at <a href="mailto:support@algeriamarket.co.uk">support@algeriamarket.co.uk</a></p>
+            <p>&copy; 2024 Algeria Market. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html> 

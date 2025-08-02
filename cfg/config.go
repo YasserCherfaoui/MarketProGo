@@ -3,6 +3,7 @@ package cfg
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv" // Optional: for loading .env files
 )
@@ -14,6 +15,29 @@ type RevolutConfig struct {
 	WebhookSecret string
 	BaseURL       string // Different for sandbox and production
 	IsSandbox     bool
+}
+
+// EmailConfig holds email service configuration
+type EmailConfig struct {
+	Provider    string // "outlook"
+	SenderEmail string // enquirees@algeriamarket.co.uk
+	SenderName  string // Algeria Market
+}
+
+// OutlookConfig holds Microsoft Graph API configuration for Outlook Business
+type OutlookConfig struct {
+	TenantID     string
+	ClientID     string
+	ClientSecret string
+	SenderEmail  string // enquirees@algeriamarket.co.uk
+	SenderName   string // Algeria Market
+}
+
+// RedisConfig holds Upstash Redis configuration
+type RedisConfig struct {
+	UpstashURL   string // UPSTASH_REDIS_REST_URL
+	UpstashToken string // UPSTASH_REDIS_REST_TOKEN
+	PoolSize     int    // Default: 10
 }
 
 // AppConfig holds all application configurations
@@ -39,6 +63,10 @@ type AppConfig struct {
 	AppwriteBucketId string
 	// Revolut configuration
 	Revolut RevolutConfig
+	// Email configuration
+	Email   EmailConfig
+	Outlook OutlookConfig
+	Redis   RedisConfig
 }
 
 // LoadConfig loads configuration from environment variables
@@ -81,6 +109,23 @@ func LoadConfig() (*AppConfig, error) {
 			BaseURL:       baseURL,
 			IsSandbox:     isSandbox,
 		},
+		Email: EmailConfig{
+			Provider:    getEnv("EMAIL_PROVIDER", "outlook"),
+			SenderEmail: getEnv("EMAIL_SENDER_EMAIL", "enquirees@algeriamarket.co.uk"),
+			SenderName:  getEnv("EMAIL_SENDER_NAME", "Algeria Market"),
+		},
+		Outlook: OutlookConfig{
+			TenantID:     getEnv("OUTLOOK_TENANT_ID", ""),
+			ClientID:     getEnv("OUTLOOK_CLIENT_ID", ""),
+			ClientSecret: getEnv("OUTLOOK_CLIENT_SECRET", ""),
+			SenderEmail:  getEnv("OUTLOOK_SENDER_EMAIL", "enquirees@algeriamarket.co.uk"),
+			SenderName:   getEnv("OUTLOOK_SENDER_NAME", "Algeria Market"),
+		},
+		Redis: RedisConfig{
+			UpstashURL:   getEnv("UPSTASH_REDIS_REST_URL", ""),
+			UpstashToken: getEnv("UPSTASH_REDIS_REST_TOKEN", ""),
+			PoolSize:     getEnvAsInt("REDIS_POOL_SIZE", 10),
+		},
 	}
 
 	if cfg.GCSBucketName == "" {
@@ -95,6 +140,16 @@ func LoadConfig() (*AppConfig, error) {
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
+	}
+	return fallback
+}
+
+// Helper function to get an environment variable as int or return a default value
+func getEnvAsInt(key string, fallback int) int {
+	if value, exists := os.LookupEnv(key); exists {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
 	}
 	return fallback
 }

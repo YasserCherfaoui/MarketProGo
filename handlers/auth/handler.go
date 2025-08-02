@@ -1,11 +1,18 @@
 package auth
 
-import "gorm.io/gorm"
+import (
+	"github.com/YasserCherfaoui/MarketProGo/email"
+	"gorm.io/gorm"
+)
 
 type AuthHandler struct {
-	db *gorm.DB
+	db              *gorm.DB
+	emailTriggerSvc *email.EmailTriggerService
 }
 
-func NewAuthHandler(db *gorm.DB) *AuthHandler {
-	return &AuthHandler{db: db}
+func NewAuthHandler(db *gorm.DB, emailTriggerSvc *email.EmailTriggerService) *AuthHandler {
+	return &AuthHandler{
+		db:              db,
+		emailTriggerSvc: emailTriggerSvc,
+	}
 }

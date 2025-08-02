@@ -19,6 +19,7 @@ func UserRoutes(router *gin.RouterGroup, db *gorm.DB) {
 	{
 		userRouter.GET("", userHandler.GetAllUsers)
 		userRouter.GET("/seller", userHandler.GetAllSellers)
+		userRouter.PUT("/profile", userHandler.UpdateProfile)
 		userRouter.DELETE("/:id", userHandler.DeleteUser)
 
 		// Address routes

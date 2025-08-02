@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"fmt"
+
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/utils/password"
 	"github.com/YasserCherfaoui/MarketProGo/utils/response"
@@ -42,6 +44,15 @@ func (h *AuthHandler) CreateUser(c *gin.Context) {
 		response.GenerateInternalServerErrorResponse(c, "auth/create-user", err.Error())
 		return
 	}
+
+	// Send welcome email asynchronously
+	go func() {
+		userName := fmt.Sprintf("%s %s", user.FirstName, user.LastName)
+		if err := h.emailTriggerSvc.TriggerWelcomeEmail(user.Email, userName); err != nil {
+			// Log error but don't fail the user creation
+			fmt.Printf("Failed to send welcome email to %s: %v\n", user.Email, err)
+		}
+	}()
 
 	response.GenerateSuccessResponse(c, "User created successfully", user)
 }
