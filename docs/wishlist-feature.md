@@ -41,10 +41,12 @@ type WishlistItem struct {
 ## API Endpoints
 
 ### Base URL
-All wishlist endpoints are prefixed with `/api/v1/wishlist`
+- Customer endpoints: `/api/v1/wishlist`
+- Admin endpoints: `/api/v1/admin/wishlists`
 
 ### Authentication
-All endpoints require authentication via the `AuthMiddleware()`.
+- Customer endpoints require authentication via the `AuthMiddleware()`
+- Admin endpoints require both authentication and admin privileges via `AuthMiddleware()` and `AdminMiddleware()`
 
 ### 1. Get User's Wishlist
 **GET** `/api/v1/wishlist`
@@ -225,6 +227,181 @@ Removes an item from the user's wishlist.
 - `404`: Wishlist or item not found
 - `500`: Internal server error
 
+## Admin Endpoints
+
+### 1. Get All Wishlists
+**GET** `/api/v1/admin/wishlists`
+
+Retrieves all wishlists in the system with pagination and filtering options.
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10)
+- `user_id` (optional): Filter by specific user ID
+
+**Response:**
+```json
+{
+  "status": 200,
+  "message": "Wishlists retrieved successfully",
+  "data": {
+    "wishlists": [
+      {
+        "id": 1,
+        "user_id": 123,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+        "user": {
+          "id": 123,
+          "email": "user@example.com",
+          "first_name": "John",
+          "last_name": "Doe"
+        },
+        "items": [...]
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "total": 50,
+      "pages": 5
+    }
+  }
+}
+```
+
+**Error Responses:**
+- `401`: User not authenticated
+- `403`: Admin access required
+- `500`: Internal server error
+
+### 2. Get Wishlist Statistics
+**GET** `/api/v1/admin/wishlists/stats`
+
+Retrieves comprehensive wishlist statistics for the admin dashboard.
+
+**Response:**
+```json
+{
+  "status": 200,
+  "message": "Wishlist statistics retrieved successfully",
+  "data": {
+    "total_wishlists": 150,
+    "total_wishlist_items": 450,
+    "active_users": 120,
+    "most_wished_items": [
+      {
+        "product_variant_id": 456,
+        "product_name": "Cotton T-Shirt",
+        "variant_name": "Red Large",
+        "count": 25
+      }
+    ]
+  }
+}
+```
+
+**Error Responses:**
+- `401`: User not authenticated
+- `403`: Admin access required
+- `500`: Internal server error
+
+### 3. Get Wishlist by ID
+**GET** `/api/v1/admin/wishlists/:id`
+
+Retrieves a specific wishlist by its ID.
+
+**URL Parameters:**
+- `id`: Wishlist ID
+
+**Response:**
+```json
+{
+  "status": 200,
+  "message": "Wishlist retrieved successfully",
+  "data": {
+    "id": 1,
+    "user_id": 123,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z",
+    "user": {
+      "id": 123,
+      "email": "user@example.com",
+      "first_name": "John",
+      "last_name": "Doe"
+    },
+    "items": [...]
+  }
+}
+```
+
+**Error Responses:**
+- `400`: Invalid wishlist ID
+- `401`: User not authenticated
+- `403`: Admin access required
+- `404`: Wishlist not found
+- `500`: Internal server error
+
+### 4. Get User's Wishlist
+**GET** `/api/v1/admin/wishlists/user/:user_id`
+
+Retrieves a specific user's wishlist by user ID.
+
+**URL Parameters:**
+- `user_id`: User ID
+
+**Response:**
+```json
+{
+  "status": 200,
+  "message": "User wishlist retrieved successfully",
+  "data": {
+    "id": 1,
+    "user_id": 123,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z",
+    "user": {
+      "id": 123,
+      "email": "user@example.com",
+      "first_name": "John",
+      "last_name": "Doe"
+    },
+    "items": [...]
+  }
+}
+```
+
+**Error Responses:**
+- `400`: Invalid user ID
+- `401`: User not authenticated
+- `403`: Admin access required
+- `404`: User wishlist not found
+- `500`: Internal server error
+
+### 5. Delete Wishlist Item (Admin Override)
+**DELETE** `/api/v1/admin/wishlists/items/:id`
+
+Deletes a wishlist item (admin override - can delete any user's wishlist item).
+
+**URL Parameters:**
+- `id`: Wishlist item ID
+
+**Response:**
+```json
+{
+  "status": 200,
+  "message": "Wishlist item deleted successfully",
+  "data": null
+}
+```
+
+**Error Responses:**
+- `400`: Invalid item ID
+- `401`: User not authenticated
+- `403`: Admin access required
+- `404`: Wishlist item not found
+- `500`: Internal server error
+
 ## Database Schema
 
 ### Tables
@@ -258,7 +435,9 @@ Removes an item from the user's wishlist.
 
 ### Frontend Integration
 
-#### Add to Wishlist Button
+#### Customer Features
+
+##### Add to Wishlist Button
 ```javascript
 const addToWishlist = async (productVariantId) => {
   try {
@@ -285,7 +464,7 @@ const addToWishlist = async (productVariantId) => {
 };
 ```
 
-#### Display Wishlist
+##### Display Wishlist
 ```javascript
 const getWishlist = async () => {
   try {
@@ -305,7 +484,7 @@ const getWishlist = async () => {
 };
 ```
 
-#### Remove from Wishlist
+##### Remove from Wishlist
 ```javascript
 const removeFromWishlist = async (itemId) => {
   try {
@@ -322,6 +501,75 @@ const removeFromWishlist = async (itemId) => {
     }
   } catch (error) {
     console.error('Error removing from wishlist:', error);
+  }
+};
+```
+
+#### Admin Features
+
+##### Get All Wishlists
+```javascript
+const getAllWishlists = async (page = 1, limit = 10, userId = null) => {
+  try {
+    let url = `/api/v1/admin/wishlists?page=${page}&limit=${limit}`;
+    if (userId) {
+      url += `&user_id=${userId}`;
+    }
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      displayWishlistsTable(data.data.wishlists);
+      displayPagination(data.data.pagination);
+    }
+  } catch (error) {
+    console.error('Error fetching wishlists:', error);
+  }
+};
+```
+
+##### Get Wishlist Statistics
+```javascript
+const getWishlistStats = async () => {
+  try {
+    const response = await fetch('/api/v1/admin/wishlists/stats', {
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      displayWishlistStats(data.data);
+    }
+  } catch (error) {
+    console.error('Error fetching wishlist statistics:', error);
+  }
+};
+```
+
+##### Delete Wishlist Item (Admin Override)
+```javascript
+const deleteWishlistItem = async (itemId) => {
+  try {
+    const response = await fetch(`/api/v1/admin/wishlists/items/${itemId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+    
+    if (response.ok) {
+      showNotification('Wishlist item deleted successfully');
+      refreshWishlistsList();
+    }
+  } catch (error) {
+    console.error('Error deleting wishlist item:', error);
   }
 };
 ```

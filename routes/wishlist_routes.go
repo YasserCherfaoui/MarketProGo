@@ -10,6 +10,7 @@ import (
 func WishlistRoutes(router *gin.RouterGroup, db *gorm.DB) {
 	wishlistHandler := wishlist.NewWishlistHandler(db)
 
+	// Customer wishlist routes (require authentication)
 	wishlistGroup := router.Group("/wishlist")
 	wishlistGroup.Use(middlewares.AuthMiddleware())
 	{
@@ -24,5 +25,26 @@ func WishlistRoutes(router *gin.RouterGroup, db *gorm.DB) {
 
 		// Remove item from wishlist
 		wishlistGroup.DELETE("/items/:id", wishlistHandler.RemoveItem)
+	}
+
+	// Admin wishlist routes (require admin authentication)
+	adminWishlistGroup := router.Group("/admin/wishlists")
+	adminWishlistGroup.Use(middlewares.AuthMiddleware())
+	adminWishlistGroup.Use(middlewares.AdminMiddleware())
+	{
+		// Get all wishlists with pagination and filtering
+		adminWishlistGroup.GET("", wishlistHandler.GetAllWishlists)
+
+		// Get wishlist statistics
+		adminWishlistGroup.GET("/stats", wishlistHandler.GetWishlistStats)
+
+		// Get specific wishlist by ID
+		adminWishlistGroup.GET("/:id", wishlistHandler.GetWishlistByID)
+
+		// Get specific user's wishlist
+		adminWishlistGroup.GET("/user/:user_id", wishlistHandler.GetUserWishlist)
+
+		// Delete wishlist item (admin override)
+		adminWishlistGroup.DELETE("/items/:id", wishlistHandler.DeleteWishlistItem)
 	}
 }
