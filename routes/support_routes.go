@@ -46,11 +46,11 @@ func SupportRoutes(router *gin.RouterGroup, db *gorm.DB, gcsService *gcs.GCServi
 	{
 		adminAbuse.GET("/reports", supportHandler.GetAllAbuseReports)
 	}
+	router.POST("/contact/inquiries", supportHandler.CreateContactInquiry)
 
 	// Contact inquiries routes
 	contact := router.Group("/contact", middlewares.AuthMiddleware())
 	{
-		contact.POST("/inquiries", supportHandler.CreateContactInquiry)
 		contact.GET("/inquiries", supportHandler.GetUserContactInquiries)
 		contact.GET("/inquiries/:id", supportHandler.GetContactInquiry)
 		contact.PUT("/inquiries/:id", supportHandler.UpdateContactInquiry)
