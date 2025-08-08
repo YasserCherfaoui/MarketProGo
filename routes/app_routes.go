@@ -54,7 +54,7 @@ func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService, appwriteSe
 	SetupPaymentRoutes(r, paymentHandler)
 
 	// Register Support routes
-	SupportRoutes(router, db, gcsService, appwriteService)
+	SupportRoutes(router, db, gcsService, appwriteService, emailTriggerSvc)
 
 	router.GET("/file/preview/:fileId", fileHandler.ProxyFilePreview)
 }

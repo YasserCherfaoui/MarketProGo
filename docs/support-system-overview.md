@@ -71,6 +71,24 @@ The support system uses the following main models:
 
 ## API Endpoints
 
+### Standard Response Envelope
+All endpoints return a consistent envelope:
+
+```json
+{
+  "status": 200,
+  "message": "Human readable summary",
+  "data": { /* endpoint-specific payload (optional) */ },
+  "error": {
+    "code": "machine_readable_code",
+    "description": "detailed error" 
+  }
+}
+```
+
+- On success: `status` is 200/201 and `data` is present, `error` is omitted.
+- On error: `status` is 4xx/5xx and `error` is present, `data` is omitted.
+
 ### Support Tickets
 
 #### Create Ticket
@@ -95,35 +113,127 @@ POST /api/v1/tickets/
   ]
 }
 ```
+**Response (200):**
+```json
+{
+  "status": 200,
+  "message": "Support ticket created successfully",
+  "data": {
+    "ID": 101,
+    "user_id": 1,
+    "order_id": 123,
+    "title": "Order not received",
+    "description": "I placed an order 2 weeks ago but haven't received it yet",
+    "category": "ORDER",
+    "priority": "HIGH",
+    "status": "OPEN",
+    "attachments": [
+      {
+        "ID": 501,
+        "ticket_id": 101,
+        "file_name": "receipt.pdf",
+        "file_url": "https://example.com/receipt.pdf",
+        "file_size": 1024,
+        "file_type": "application/pdf"
+      }
+    ]
+  }
+}
+```
+**Error (400):**
+```json
+{
+  "status": 400,
+  "message": "Title is required",
+  "error": {
+    "code": "support/create-ticket",
+    "description": "Title is required"
+  }
+}
+```
 
 #### Get User Tickets
 ```
 GET /api/v1/tickets/
+```
+**Response (200):**
+```json
+{
+  "status": 200,
+  "message": "User tickets retrieved successfully",
+  "data": [
+    { "ID": 101, "user_id": 1, "title": "Order not received", "category": "ORDER", "priority": "HIGH", "status": "OPEN" }
+  ]
+}
 ```
 
 #### Get Specific Ticket
 ```
 GET /api/v1/tickets/{id}
 ```
+**Response (200):**
+```json
+{
+  "status": 200,
+  "message": "Ticket retrieved successfully",
+  "data": {
+    "ID": 101,
+    "user_id": 1,
+    "title": "Order not received",
+    "status": "OPEN",
+    "responses": [
+      { "ID": 801, "ticket_id": 101, "user_id": 999, "message": "We're checking this now", "is_from_admin": true }
+    ]
+  }
+}
+```
 
 #### Update Ticket
 ```
 PUT /api/v1/tickets/{id}
+```
+**Response (200):**
+```json
+{
+  "status": 200,
+  "message": "Ticket updated successfully",
+  "data": { "ID": 101, "status": "IN_PROGRESS" }
+}
 ```
 
 #### Add Response to Ticket
 ```
 POST /api/v1/tickets/{id}/responses
 ```
+**Request Body:**
+```json
+{ "message": "Thanks for the update", "is_internal": false }
+```
+**Response (200):**
+```json
+{
+  "status": 200,
+  "message": "Response added successfully",
+  "data": { "ID": 802, "ticket_id": 101, "user_id": 1, "message": "Thanks for the update", "is_from_admin": false }
+}
+```
 
 #### Delete Ticket (Admin only)
 ```
 DELETE /api/v1/tickets/{id}
 ```
+**Response (200):**
+```json
+{ "status": 200, "message": "Ticket deleted successfully" }
+```
 
 #### Get All Tickets (Admin only)
 ```
 GET /api/v1/admin/tickets/
+```
+**Response (200):**
+```json
+{ "status": 200, "message": "All tickets retrieved successfully", "data": [ /* tickets */ ] }
 ```
 
 ### Abuse Reports
@@ -149,30 +259,65 @@ POST /api/v1/abuse/reports
   ]
 }
 ```
+**Response (200):**
+```json
+{
+  "status": 200,
+  "message": "Abuse report created successfully",
+  "data": {
+    "ID": 301,
+    "reporter_id": 1,
+    "reported_user_id": 456,
+    "category": "HARASSMENT",
+    "status": "PENDING",
+    "severity": "HIGH"
+  }
+}
+```
 
 #### Get User Abuse Reports
 ```
 GET /api/v1/abuse/reports
+```
+**Response (200):**
+```json
+{ "status": 200, "message": "User abuse reports retrieved successfully", "data": [ /* reports */ ] }
 ```
 
 #### Get Specific Abuse Report
 ```
 GET /api/v1/abuse/reports/{id}
 ```
+**Response (200):**
+```json
+{ "status": 200, "message": "Abuse report retrieved successfully", "data": { /* report */ } }
+```
 
 #### Update Abuse Report (Admin only)
 ```
 PUT /api/v1/abuse/reports/{id}
+```
+**Response (200):**
+```json
+{ "status": 200, "message": "Abuse report updated successfully", "data": { "status": "REVIEWING" } }
 ```
 
 #### Delete Abuse Report (Admin only)
 ```
 DELETE /api/v1/abuse/reports/{id}
 ```
+**Response (200):**
+```json
+{ "status": 200, "message": "Abuse report deleted successfully" }
+```
 
 #### Get All Abuse Reports (Admin only)
 ```
 GET /api/v1/admin/abuse/reports
+```
+**Response (200):**
+```json
+{ "status": 200, "message": "All abuse reports retrieved successfully", "data": [ /* reports */ ] }
 ```
 
 ### Contact Inquiries
@@ -193,30 +338,54 @@ POST /api/v1/contact/inquiries
   "priority": "NORMAL"
 }
 ```
+**Response (200):**
+```json
+{ "status": 200, "message": "Contact inquiry submitted successfully", "data": { "ID": 401, "email": "john@example.com", "status": "NEW" } }
+```
 
 #### Get User Contact Inquiries
 ```
 GET /api/v1/contact/inquiries
+```
+**Response (200):**
+```json
+{ "status": 200, "message": "User contact inquiries retrieved successfully", "data": [ /* inquiries */ ] }
 ```
 
 #### Get Specific Contact Inquiry
 ```
 GET /api/v1/contact/inquiries/{id}
 ```
+**Response (200):**
+```json
+{ "status": 200, "message": "Contact inquiry retrieved successfully", "data": { /* inquiry */ } }
+```
 
 #### Update Contact Inquiry (Admin only)
 ```
 PUT /api/v1/contact/inquiries/{id}
+```
+**Response (200):**
+```json
+{ "status": 200, "message": "Contact inquiry updated successfully", "data": { "status": "RESPONDED" } }
 ```
 
 #### Delete Contact Inquiry (Admin only)
 ```
 DELETE /api/v1/contact/inquiries/{id}
 ```
+**Response (200):**
+```json
+{ "status": 200, "message": "Contact inquiry deleted successfully" }
+```
 
 #### Get All Contact Inquiries (Admin only)
 ```
 GET /api/v1/admin/contact/inquiries
+```
+**Response (200):**
+```json
+{ "status": 200, "message": "All contact inquiries retrieved successfully", "data": [ /* inquiries */ ] }
 ```
 
 ### Disputes
@@ -245,35 +414,83 @@ POST /api/v1/disputes/
   ]
 }
 ```
+**Response (200):**
+```json
+{
+  "status": 200,
+  "message": "Dispute created successfully",
+  "data": {
+    "ID": 201,
+    "user_id": 1,
+    "order_id": 123,
+    "title": "Wrong item received",
+    "category": "ORDER",
+    "priority": "HIGH",
+    "status": "OPEN"
+  }
+}
+```
 
 #### Get User Disputes
 ```
 GET /api/v1/disputes/
+```
+**Response (200):**
+```json
+{ "status": 200, "message": "User disputes retrieved successfully", "data": [ /* disputes */ ] }
 ```
 
 #### Get Specific Dispute
 ```
 GET /api/v1/disputes/{id}
 ```
+**Response (200):**
+```json
+{ "status": 200, "message": "Dispute retrieved successfully", "data": { /* dispute incl. responses */ } }
+```
 
 #### Update Dispute
 ```
 PUT /api/v1/disputes/{id}
+```
+**Response (200):**
+```json
+{ "status": 200, "message": "Dispute updated successfully", "data": { "status": "IN_PROGRESS" } }
 ```
 
 #### Add Response to Dispute
 ```
 POST /api/v1/disputes/{id}/responses
 ```
+**Request Body:**
+```json
+{ "message": "We will send a replacement", "is_internal": false }
+```
+**Response (200):**
+```json
+{
+  "status": 200,
+  "message": "Response added successfully",
+  "data": { "ID": 905, "dispute_id": 201, "user_id": 999, "message": "We will send a replacement", "is_from_admin": true }
+}
+```
 
 #### Delete Dispute (Admin only)
 ```
 DELETE /api/v1/disputes/{id}
 ```
+**Response (200):**
+```json
+{ "status": 200, "message": "Dispute deleted successfully" }
+```
 
 #### Get All Disputes (Admin only)
 ```
 GET /api/v1/admin/disputes/
+```
+**Response (200):**
+```json
+{ "status": 200, "message": "All disputes retrieved successfully", "data": [ /* disputes */ ] }
 ```
 
 ## Email Notifications
@@ -414,3 +631,211 @@ Monitor the following metrics for the support system:
 The support system provides a comprehensive solution for customer support, abuse reporting, contact inquiries, and dispute resolution. It is designed to be scalable, secure, and user-friendly while providing powerful admin tools for managing support operations.
 
 The system integrates seamlessly with the existing ecommerce platform and provides a solid foundation for future enhancements and improvements.
+
+## Resource Schemas (All Fields)
+
+Below are the complete fields returned in the `data` payload for each resource. Timestamps follow ISO-8601. Relationship fields may be omitted when not preloaded.
+
+### SupportTicket
+```json
+{
+  "ID": 0,
+  "CreatedAt": "2024-01-01T00:00:00Z",
+  "UpdatedAt": "2024-01-01T00:00:00Z",
+  "DeletedAt": null,
+  "user_id": 0,
+  "user": { /* User */ },
+  "order_id": 0,
+  "order": { /* Order */ },
+  "title": "",
+  "description": "",
+  "category": "GENERAL|ORDER|PAYMENT|PRODUCT|SHIPPING|RETURN|TECHNICAL|ACCOUNT|BILLING|OTHER",
+  "priority": "LOW|MEDIUM|HIGH|URGENT",
+  "status": "OPEN|IN_PROGRESS|WAITING|RESOLVED|CLOSED",
+  "assigned_to": 0,
+  "assigned_user": { /* User */ },
+  "resolution": "",
+  "resolved_at": "2024-01-01T00:00:00Z",
+  "resolved_by": 0,
+  "resolved_by_user": { /* User */ },
+  "internal_notes": "",
+  "is_escalated": false,
+  "escalated_at": "2024-01-01T00:00:00Z",
+  "escalated_by": 0,
+  "escalated_by_user": { /* User */ },
+  "attachments": [ /* TicketAttachment[] */ ],
+  "responses": [ /* TicketResponse[] */ ]
+}
+```
+
+#### TicketAttachment
+```json
+{
+  "ID": 0,
+  "CreatedAt": "2024-01-01T00:00:00Z",
+  "UpdatedAt": "2024-01-01T00:00:00Z",
+  "DeletedAt": null,
+  "ticket_id": 0,
+  "file_name": "",
+  "file_url": "",
+  "file_size": 0,
+  "file_type": ""
+}
+```
+
+#### TicketResponse
+```json
+{
+  "ID": 0,
+  "CreatedAt": "2024-01-01T00:00:00Z",
+  "UpdatedAt": "2024-01-01T00:00:00Z",
+  "DeletedAt": null,
+  "ticket_id": 0,
+  "user_id": 0,
+  "user": { /* User */ },
+  "message": "",
+  "is_internal": false,
+  "is_from_admin": false
+}
+```
+
+### AbuseReport
+```json
+{
+  "ID": 0,
+  "CreatedAt": "2024-01-01T00:00:00Z",
+  "UpdatedAt": "2024-01-01T00:00:00Z",
+  "DeletedAt": null,
+  "reporter_id": 0,
+  "reporter": { /* User */ },
+  "reported_user_id": 0,
+  "reported_user": { /* User */ },
+  "product_id": 0,
+  "product": { /* Product */ },
+  "review_id": 0,
+  "review": { /* ProductReview */ },
+  "order_id": 0,
+  "order": { /* Order */ },
+  "category": "HARASSMENT|SPAM|INAPPROPRIATE|FRAUD|COPYRIGHT|VIOLENCE|DISCRIMINATION|OTHER",
+  "description": "",
+  "status": "PENDING|REVIEWING|RESOLVED|DISMISSED",
+  "severity": "LOW|MEDIUM|HIGH|CRITICAL",
+  "assigned_to": 0,
+  "assigned_user": { /* User */ },
+  "resolution": "",
+  "resolved_at": "2024-01-01T00:00:00Z",
+  "resolved_by": 0,
+  "resolved_by_user": { /* User */ },
+  "internal_notes": "",
+  "attachments": [ /* AbuseReportAttachment[] */ ]
+}
+```
+
+#### AbuseReportAttachment
+```json
+{
+  "ID": 0,
+  "CreatedAt": "2024-01-01T00:00:00Z",
+  "UpdatedAt": "2024-01-01T00:00:00Z",
+  "DeletedAt": null,
+  "abuse_report_id": 0,
+  "file_name": "",
+  "file_url": "",
+  "file_size": 0,
+  "file_type": ""
+}
+```
+
+### ContactInquiry
+```json
+{
+  "ID": 0,
+  "CreatedAt": "2024-01-01T00:00:00Z",
+  "UpdatedAt": "2024-01-01T00:00:00Z",
+  "DeletedAt": null,
+  "user_id": 0,
+  "user": { /* User */ },
+  "name": "",
+  "email": "",
+  "phone": "",
+  "subject": "",
+  "message": "",
+  "category": "GENERAL|SALES|SUPPORT|FEEDBACK|PARTNERSHIP|PRESS|OTHER",
+  "status": "NEW|IN_PROGRESS|RESPONDED|CLOSED",
+  "priority": "LOW|NORMAL|HIGH|URGENT",
+  "assigned_to": 0,
+  "assigned_user": { /* User */ },
+  "response": "",
+  "responded_at": "2024-01-01T00:00:00Z",
+  "responded_by": 0,
+  "responded_by_user": { /* User */ },
+  "internal_notes": ""
+}
+```
+
+### Dispute
+```json
+{
+  "ID": 0,
+  "CreatedAt": "2024-01-01T00:00:00Z",
+  "UpdatedAt": "2024-01-01T00:00:00Z",
+  "DeletedAt": null,
+  "user_id": 0,
+  "user": { /* User */ },
+  "order_id": 0,
+  "order": { /* Order */ },
+  "payment_id": 0,
+  "payment": { /* Payment */ },
+  "title": "",
+  "description": "",
+  "category": "ORDER|PAYMENT|PRODUCT|SHIPPING|REFUND|BILLING|SERVICE|OTHER",
+  "status": "OPEN|IN_PROGRESS|UNDER_REVIEW|RESOLVED|CLOSED|ESCALATED",
+  "priority": "LOW|MEDIUM|HIGH|URGENT",
+  "amount": 0,
+  "currency": "USD",
+  "assigned_to": 0,
+  "assigned_user": { /* User */ },
+  "resolution": "",
+  "resolved_at": "2024-01-01T00:00:00Z",
+  "resolved_by": 0,
+  "resolved_by_user": { /* User */ },
+  "internal_notes": "",
+  "is_escalated": false,
+  "escalated_at": "2024-01-01T00:00:00Z",
+  "escalated_by": 0,
+  "escalated_by_user": { /* User */ },
+  "attachments": [ /* DisputeAttachment[] */ ],
+  "responses": [ /* DisputeResponse[] */ ]
+}
+```
+
+#### DisputeAttachment
+```json
+{
+  "ID": 0,
+  "CreatedAt": "2024-01-01T00:00:00Z",
+  "UpdatedAt": "2024-01-01T00:00:00Z",
+  "DeletedAt": null,
+  "dispute_id": 0,
+  "file_name": "",
+  "file_url": "",
+  "file_size": 0,
+  "file_type": ""
+}
+```
+
+#### DisputeResponse
+```json
+{
+  "ID": 0,
+  "CreatedAt": "2024-01-01T00:00:00Z",
+  "UpdatedAt": "2024-01-01T00:00:00Z",
+  "DeletedAt": null,
+  "dispute_id": 0,
+  "user_id": 0,
+  "user": { /* User */ },
+  "message": "",
+  "is_internal": false,
+  "is_from_admin": false
+}
+```

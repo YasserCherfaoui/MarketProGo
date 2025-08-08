@@ -41,16 +41,23 @@ type EmailRecipient struct {
 type EmailType string
 
 const (
-	EmailTypePasswordReset     EmailType = "password_reset"
-	EmailTypeWelcome           EmailType = "welcome"
-	EmailTypeOrderConfirmation EmailType = "order_confirmation"
-	EmailTypeOrderStatusUpdate EmailType = "order_status_update"
-	EmailTypePaymentSuccess    EmailType = "payment_success"
-	EmailTypePaymentFailed     EmailType = "payment_failed"
-	EmailTypePromotional       EmailType = "promotional"
-	EmailTypeCartRecovery      EmailType = "cart_recovery"
-	EmailTypeSecurityAlert     EmailType = "security_alert"
-	EmailTypeAdminNotification EmailType = "admin_notification"
+	EmailTypePasswordReset          EmailType = "password_reset"
+	EmailTypeWelcome                EmailType = "welcome"
+	EmailTypeOrderConfirmation      EmailType = "order_confirmation"
+	EmailTypeOrderStatusUpdate      EmailType = "order_status_update"
+	EmailTypePaymentSuccess         EmailType = "payment_success"
+	EmailTypePaymentFailed          EmailType = "payment_failed"
+	EmailTypePromotional            EmailType = "promotional"
+	EmailTypeCartRecovery           EmailType = "cart_recovery"
+	EmailTypeSecurityAlert          EmailType = "security_alert"
+	EmailTypeAdminNotification      EmailType = "admin_notification"
+	EmailTypeContactInquiryResponse EmailType = "contact_inquiry_response"
+	EmailTypeContactStatusUpdated   EmailType = "contact_status_updated"
+	EmailTypeTicketResponse         EmailType = "ticket_response"
+	EmailTypeTicketStatusUpdated    EmailType = "ticket_status_updated"
+	EmailTypeDisputeResponse        EmailType = "dispute_response"
+	EmailTypeDisputeStatusUpdated   EmailType = "dispute_status_updated"
+	EmailTypeAbuseStatusUpdated     EmailType = "abuse_status_updated"
 )
 
 // EmailStatus represents the status of an email

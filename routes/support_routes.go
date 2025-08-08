@@ -2,18 +2,20 @@ package routes
 
 import (
 	"github.com/YasserCherfaoui/MarketProGo/aw"
+	"github.com/YasserCherfaoui/MarketProGo/email"
 	"github.com/YasserCherfaoui/MarketProGo/gcs"
 	"github.com/YasserCherfaoui/MarketProGo/handlers/support"
+	"github.com/YasserCherfaoui/MarketProGo/middlewares"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 // SupportRoutes registers all support-related routes
-func SupportRoutes(router *gin.RouterGroup, db *gorm.DB, gcsService *gcs.GCService, appwriteService *aw.AppwriteService) {
-	supportHandler := support.NewSupportHandler(db, gcsService, appwriteService)
+func SupportRoutes(router *gin.RouterGroup, db *gorm.DB, gcsService *gcs.GCService, appwriteService *aw.AppwriteService, emailTriggerSvc *email.EmailTriggerService) {
+	supportHandler := support.NewSupportHandler(db, gcsService, appwriteService, emailTriggerSvc)
 
 	// Support tickets routes
-	tickets := router.Group("/tickets")
+	tickets := router.Group("/tickets", middlewares.AuthMiddleware())
 	{
 		tickets.POST("/", supportHandler.CreateTicket)
 		tickets.GET("/", supportHandler.GetUserTickets)
@@ -24,13 +26,13 @@ func SupportRoutes(router *gin.RouterGroup, db *gorm.DB, gcsService *gcs.GCServi
 	}
 
 	// Admin-only ticket routes
-	adminTickets := router.Group("/admin/tickets")
+	adminTickets := router.Group("/admin/tickets", middlewares.AuthMiddleware())
 	{
 		adminTickets.GET("/", supportHandler.GetAllTickets)
 	}
 
 	// Abuse reports routes
-	abuse := router.Group("/abuse")
+	abuse := router.Group("/abuse", middlewares.AuthMiddleware())
 	{
 		abuse.POST("/reports", supportHandler.CreateAbuseReport)
 		abuse.GET("/reports", supportHandler.GetUserAbuseReports)
@@ -40,13 +42,13 @@ func SupportRoutes(router *gin.RouterGroup, db *gorm.DB, gcsService *gcs.GCServi
 	}
 
 	// Admin-only abuse report routes
-	adminAbuse := router.Group("/admin/abuse")
+	adminAbuse := router.Group("/admin/abuse", middlewares.AuthMiddleware())
 	{
 		adminAbuse.GET("/reports", supportHandler.GetAllAbuseReports)
 	}
 
 	// Contact inquiries routes
-	contact := router.Group("/contact")
+	contact := router.Group("/contact", middlewares.AuthMiddleware())
 	{
 		contact.POST("/inquiries", supportHandler.CreateContactInquiry)
 		contact.GET("/inquiries", supportHandler.GetUserContactInquiries)
@@ -56,13 +58,14 @@ func SupportRoutes(router *gin.RouterGroup, db *gorm.DB, gcsService *gcs.GCServi
 	}
 
 	// Admin-only contact inquiry routes
-	adminContact := router.Group("/admin/contact")
+	adminContact := router.Group("/admin/contact", middlewares.AuthMiddleware())
 	{
 		adminContact.GET("/inquiries", supportHandler.GetAllContactInquiries)
+		adminContact.POST("/inquiries/:id/reply", supportHandler.ReplyToContactInquiry)
 	}
 
 	// Disputes routes
-	disputes := router.Group("/disputes")
+	disputes := router.Group("/disputes", middlewares.AuthMiddleware())
 	{
 		disputes.POST("/", supportHandler.CreateDispute)
 		disputes.GET("/", supportHandler.GetUserDisputes)
@@ -73,7 +76,7 @@ func SupportRoutes(router *gin.RouterGroup, db *gorm.DB, gcsService *gcs.GCServi
 	}
 
 	// Admin-only dispute routes
-	adminDisputes := router.Group("/admin/disputes")
+	adminDisputes := router.Group("/admin/disputes", middlewares.AuthMiddleware())
 	{
 		adminDisputes.GET("/", supportHandler.GetAllDisputes)
 	}

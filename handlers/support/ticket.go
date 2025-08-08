@@ -1,12 +1,16 @@
 package support
 
 import (
+	"fmt"
+	"html/template"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/utils/response"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CreateTicketRequest represents the request to create a support ticket
@@ -42,6 +46,68 @@ type UpdateTicketRequest struct {
 type TicketResponseRequest struct {
 	Message    string `json:"message" binding:"required"`
 	IsInternal bool   `json:"is_internal"`
+}
+
+// applyTicketFilters applies filters/sort/pagination for tickets
+func (h *SupportHandler) applyTicketFilters(c *gin.Context, query *gorm.DB) (*gorm.DB, int, int) {
+	if status := c.Query("status"); status != "" {
+		query = query.Where("status IN ?", strings.Split(strings.ToUpper(status), ","))
+	}
+	if category := c.Query("category"); category != "" {
+		query = query.Where("category IN ?", strings.Split(strings.ToUpper(category), ","))
+	}
+	if priority := c.Query("priority"); priority != "" {
+		query = query.Where("priority IN ?", strings.Split(strings.ToUpper(priority), ","))
+	}
+	if assigned := c.Query("assigned_to"); assigned != "" {
+		if v, err := strconv.Atoi(assigned); err == nil {
+			query = query.Where("assigned_to = ?", v)
+		}
+	}
+	if start := c.Query("start_date"); start != "" {
+		if t, err := time.Parse(time.RFC3339, start); err == nil {
+			query = query.Where("created_at >= ?", t)
+		} else if t2, err2 := time.Parse("2006-01-02", start); err2 == nil {
+			query = query.Where("created_at >= ?", t2)
+		}
+	}
+	if end := c.Query("end_date"); end != "" {
+		if t, err := time.Parse(time.RFC3339, end); err == nil {
+			query = query.Where("created_at <= ?", t)
+		} else if t2, err2 := time.Parse("2006-01-02", end); err2 == nil {
+			query = query.Where("created_at < ?", t2.Add(24*time.Hour))
+		}
+	}
+	// sort
+	sort := strings.ToLower(c.DefaultQuery("sort_by", "date"))
+	order := strings.ToUpper(c.DefaultQuery("sort_order", "DESC"))
+	if order != "ASC" {
+		order = "DESC"
+	}
+	switch sort {
+	case "date":
+		query = query.Order("created_at " + order)
+	case "priority":
+		caseExpr := fmt.Sprintf("CASE priority WHEN 'LOW' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'HIGH' THEN 3 WHEN 'URGENT' THEN 4 END %s", order)
+		query = query.Order(caseExpr).Order("created_at DESC")
+	case "status":
+		query = query.Order("status " + order).Order("created_at DESC")
+	case "assigned":
+		query = query.Order("assigned_to " + order).Order("created_at DESC")
+	default:
+		query = query.Order("created_at DESC")
+	}
+	// pagination
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 20
+	}
+	query = query.Offset((page - 1) * pageSize).Limit(pageSize)
+	return query, page, pageSize
 }
 
 // CreateTicket creates a new support ticket
@@ -125,7 +191,7 @@ func (h *SupportHandler) GetTicket(c *gin.Context) {
 	// Only allow users to view their own tickets or admins to view any ticket
 	if ticket.UserID != userID.(uint) {
 		userType, _ := c.Get("user_type")
-		if userType != "ADMIN" {
+		if userType != models.Admin {
 			response.GenerateForbiddenResponse(c, "support/get-ticket", "Access denied")
 			return
 		}
@@ -143,7 +209,9 @@ func (h *SupportHandler) GetUserTickets(c *gin.Context) {
 	}
 
 	var tickets []models.SupportTicket
-	if err := h.db.Where("user_id = ?", userID).Preload("User").Preload("Order").Order("created_at DESC").Find(&tickets).Error; err != nil {
+	q := h.db.Where("user_id = ?", userID).Model(&models.SupportTicket{})
+	q, _, _ = h.applyTicketFilters(c, q)
+	if err := q.Preload("User").Preload("Order").Order("created_at DESC").Find(&tickets).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "support/get-user-tickets", err.Error())
 		return
 	}
@@ -154,13 +222,15 @@ func (h *SupportHandler) GetUserTickets(c *gin.Context) {
 // GetAllTickets retrieves all tickets (admin only)
 func (h *SupportHandler) GetAllTickets(c *gin.Context) {
 	userType, exists := c.Get("user_type")
-	if !exists || userType != "ADMIN" {
+	if !exists || userType != models.Admin {
 		response.GenerateForbiddenResponse(c, "support/get-all-tickets", "Admin access required")
 		return
 	}
 
 	var tickets []models.SupportTicket
-	if err := h.db.Preload("User").Preload("Order").Order("created_at DESC").Find(&tickets).Error; err != nil {
+	q := h.db.Model(&models.SupportTicket{})
+	q, _, _ = h.applyTicketFilters(c, q)
+	if err := q.Preload("User").Preload("Order").Find(&tickets).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "support/get-all-tickets", err.Error())
 		return
 	}
@@ -196,7 +266,7 @@ func (h *SupportHandler) UpdateTicket(c *gin.Context) {
 	}
 
 	userType, _ := c.Get("user_type")
-	if ticket.UserID != userID.(uint) && userType != "ADMIN" {
+	if ticket.UserID != userID.(uint) && userType != models.Admin {
 		response.GenerateForbiddenResponse(c, "support/update-ticket", "Access denied")
 		return
 	}
@@ -235,6 +305,25 @@ func (h *SupportHandler) UpdateTicket(c *gin.Context) {
 		return
 	}
 
+	// send status update email if status changed
+	if _, ok := updates["status"]; ok && h.emailTriggerSvc != nil {
+		// Load user for email
+		var user models.User
+		if err := h.db.First(&user, ticket.UserID).Error; err == nil {
+			data := map[string]interface{}{
+				"UserName":        strings.TrimSpace(user.FirstName + " " + user.LastName),
+				"TicketID":        ticket.ID,
+				"TicketTitle":     ticket.Title,
+				"OldStatus":       "",
+				"NewStatus":       updates["status"],
+				"UserMessageHTML": template.HTML(ticket.Description),
+				"AdminNoteHTML":   template.HTML(fmt.Sprintf("%v", updates["internal_notes"])),
+				"subject":         fmt.Sprintf("Your ticket #%d status updated", ticket.ID),
+			}
+			_ = h.emailTriggerSvc.TriggerTicketStatusUpdated(user.Email, data["UserName"].(string), data)
+		}
+	}
+
 	// Load updated ticket
 	if err := h.db.Preload("User").Preload("Order").Preload("Attachments").Preload("Responses.User").First(&ticket, ticketID).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "support/update-ticket", "Failed to load updated ticket")
@@ -271,7 +360,7 @@ func (h *SupportHandler) AddTicketResponse(c *gin.Context) {
 	}
 
 	userType, _ := c.Get("user_type")
-	isAdmin := userType == "ADMIN"
+	isAdmin := userType == models.Admin
 
 	// Check permissions
 	if ticket.UserID != userID.(uint) && !isAdmin {
@@ -293,6 +382,30 @@ func (h *SupportHandler) AddTicketResponse(c *gin.Context) {
 		return
 	}
 
+	// Email notify ticket owner on non-internal responses
+	if !request.IsInternal && h.emailTriggerSvc != nil {
+		var owner models.User
+		if err := h.db.First(&owner, ticket.UserID).Error; err == nil {
+			// responder name
+			responderName := "User"
+			var responder models.User
+			if err := h.db.First(&responder, userID.(uint)).Error; err == nil {
+				responderName = strings.TrimSpace(responder.FirstName + " " + responder.LastName)
+			}
+			data := map[string]interface{}{
+				"UserName":        strings.TrimSpace(owner.FirstName + " " + owner.LastName),
+				"TicketID":        ticket.ID,
+				"TicketTitle":     ticket.Title,
+				"UserMessageHTML": template.HTML(ticket.Description),
+				"ResponderName":   responderName,
+				"RespondedAt":     time.Now().Format("2006-01-02 15:04:05"),
+				"ResponseHTML":    template.HTML(request.Message),
+				"subject":         fmt.Sprintf("New response on your ticket #%d", ticket.ID),
+			}
+			_ = h.emailTriggerSvc.TriggerTicketResponse(owner.Email, data["UserName"].(string), data)
+		}
+	}
+
 	// Update ticket status if admin responded
 	if isAdmin && ticket.Status == models.TicketStatusOpen {
 		h.db.Model(&ticket).Update("status", models.TicketStatusInProgress)
@@ -310,7 +423,7 @@ func (h *SupportHandler) DeleteTicket(c *gin.Context) {
 	}
 
 	userType, exists := c.Get("user_type")
-	if !exists || userType != "ADMIN" {
+	if !exists || userType != models.Admin {
 		response.GenerateForbiddenResponse(c, "support/delete-ticket", "Admin access required")
 		return
 	}

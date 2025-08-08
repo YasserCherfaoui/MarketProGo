@@ -1,12 +1,16 @@
 package support
 
 import (
+	"fmt"
+	"html/template"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/utils/response"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CreateAbuseReportRequest represents the request to create an abuse report
@@ -118,12 +122,77 @@ func (h *SupportHandler) GetAbuseReport(c *gin.Context) {
 	}
 
 	userType, _ := c.Get("user_type")
-	if abuseReport.ReporterID != userID.(uint) && userType != "ADMIN" {
+	if abuseReport.ReporterID != userID.(uint) && userType != models.Admin {
 		response.GenerateForbiddenResponse(c, "support/get-abuse-report", "Access denied")
 		return
 	}
 
 	response.GenerateSuccessResponse(c, "Abuse report retrieved successfully", abuseReport)
+}
+
+// applyAbuseFilters applies filters/sort/pagination to the abuse report query
+func (h *SupportHandler) applyAbuseFilters(c *gin.Context, query *gorm.DB) (*gorm.DB, int, int) {
+	// Filters
+	if status := c.Query("status"); status != "" {
+		statuses := strings.Split(strings.ToUpper(status), ",")
+		query = query.Where("status IN ?", statuses)
+	}
+	if category := c.Query("category"); category != "" {
+		cats := strings.Split(strings.ToUpper(category), ",")
+		query = query.Where("category IN ?", cats)
+	}
+	if severity := c.Query("severity"); severity != "" {
+		sevs := strings.Split(strings.ToUpper(severity), ",")
+		query = query.Where("severity IN ?", sevs)
+	}
+	// Date range
+	if start := c.Query("start_date"); start != "" {
+		if t, err := time.Parse(time.RFC3339, start); err == nil {
+			query = query.Where("created_at >= ?", t)
+		} else if t2, err2 := time.Parse("2006-01-02", start); err2 == nil {
+			query = query.Where("created_at >= ?", t2)
+		}
+	}
+	if end := c.Query("end_date"); end != "" {
+		if t, err := time.Parse(time.RFC3339, end); err == nil {
+			query = query.Where("created_at <= ?", t)
+		} else if t2, err2 := time.Parse("2006-01-02", end); err2 == nil {
+			// include end of day
+			query = query.Where("created_at < ?", t2.Add(24*time.Hour))
+		}
+	}
+
+	// Sorting
+	sort := strings.ToLower(c.DefaultQuery("sort_by", "date"))
+	order := strings.ToUpper(c.DefaultQuery("sort_order", "DESC"))
+	if order != "ASC" {
+		order = "DESC"
+	}
+	switch sort {
+	case "date":
+		query = query.Order("created_at " + order)
+	case "severity":
+		caseExpr := fmt.Sprintf("CASE severity WHEN 'LOW' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'HIGH' THEN 3 WHEN 'CRITICAL' THEN 4 END %s", order)
+		query = query.Order(caseExpr).Order("created_at DESC")
+	case "status":
+		query = query.Order("status " + order).Order("created_at DESC")
+	default:
+		query = query.Order("created_at DESC")
+	}
+
+	// Pagination
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
+	query = query.Offset(offset).Limit(pageSize)
+
+	return query, page, pageSize
 }
 
 // GetUserAbuseReports retrieves all abuse reports for the current user
@@ -135,7 +204,9 @@ func (h *SupportHandler) GetUserAbuseReports(c *gin.Context) {
 	}
 
 	var abuseReports []models.AbuseReport
-	if err := h.db.Where("reporter_id = ?", userID).Preload("Reporter").Preload("ReportedUser").Preload("Product").Preload("Review").Preload("Order").Order("created_at DESC").Find(&abuseReports).Error; err != nil {
+	q := h.db.Where("reporter_id = ?", userID).Model(&models.AbuseReport{})
+	q, _, _ = h.applyAbuseFilters(c, q)
+	if err := q.Preload("Reporter").Preload("ReportedUser").Preload("Product").Preload("Review").Preload("Order").Order("created_at DESC").Find(&abuseReports).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "support/get-user-abuse-reports", err.Error())
 		return
 	}
@@ -146,13 +217,15 @@ func (h *SupportHandler) GetUserAbuseReports(c *gin.Context) {
 // GetAllAbuseReports retrieves all abuse reports (admin only)
 func (h *SupportHandler) GetAllAbuseReports(c *gin.Context) {
 	userType, exists := c.Get("user_type")
-	if !exists || userType != "ADMIN" {
+	if !exists || userType != models.Admin {
 		response.GenerateForbiddenResponse(c, "support/get-all-abuse-reports", "Admin access required")
 		return
 	}
 
 	var abuseReports []models.AbuseReport
-	if err := h.db.Preload("Reporter").Preload("ReportedUser").Preload("Product").Preload("Review").Preload("Order").Order("created_at DESC").Find(&abuseReports).Error; err != nil {
+	q := h.db.Model(&models.AbuseReport{})
+	q, _, _ = h.applyAbuseFilters(c, q)
+	if err := q.Preload("Reporter").Preload("ReportedUser").Preload("Product").Preload("Review").Preload("Order").Find(&abuseReports).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "support/get-all-abuse-reports", err.Error())
 		return
 	}
@@ -182,7 +255,7 @@ func (h *SupportHandler) UpdateAbuseReport(c *gin.Context) {
 
 	// Only admins can update abuse reports
 	userType, exists := c.Get("user_type")
-	if !exists || userType != "ADMIN" {
+	if !exists || userType != models.Admin {
 		response.GenerateForbiddenResponse(c, "support/update-abuse-report", "Admin access required")
 		return
 	}
@@ -191,8 +264,10 @@ func (h *SupportHandler) UpdateAbuseReport(c *gin.Context) {
 	updates := make(map[string]interface{})
 	if request.Status != "" {
 		updates["status"] = request.Status
+		now := time.Now()
+		updates["resolved_at"] = nil
+		updates["resolved_by"] = nil
 		if request.Status == models.AbuseReportStatusResolved || request.Status == models.AbuseReportStatusDismissed {
-			now := time.Now()
 			updates["resolved_at"] = &now
 			userID, _ := c.Get("user_id")
 			updates["resolved_by"] = userID
@@ -213,6 +288,26 @@ func (h *SupportHandler) UpdateAbuseReport(c *gin.Context) {
 		return
 	}
 
+	// Email notify reporter on status changes
+	if _, ok := updates["status"]; ok && h.emailTriggerSvc != nil {
+		var reporter models.User
+		if err := h.db.First(&reporter, abuseReport.ReporterID).Error; err == nil {
+			name := strings.TrimSpace(reporter.FirstName + " " + reporter.LastName)
+			data := map[string]interface{}{
+				"UserName":            name,
+				"ReportID":            abuseReport.ID,
+				"OldStatus":           "",
+				"NewStatus":           updates["status"],
+				"UserDescriptionHTML": template.HTML(abuseReport.Description),
+				"Category":            string(abuseReport.Category),
+				"Severity":            string(abuseReport.Severity),
+				"AdminNoteHTML":       template.HTML(fmt.Sprintf("%v", updates["internal_notes"])),
+				"subject":             fmt.Sprintf("Your abuse report #%d status updated", abuseReport.ID),
+			}
+			_ = h.emailTriggerSvc.TriggerAbuseStatusUpdated(reporter.Email, name, data)
+		}
+	}
+
 	// Load updated abuse report
 	if err := h.db.Preload("Reporter").Preload("ReportedUser").Preload("Product").Preload("Review").Preload("Order").Preload("Attachments").First(&abuseReport, reportID).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "support/update-abuse-report", "Failed to load updated abuse report")
@@ -231,7 +326,7 @@ func (h *SupportHandler) DeleteAbuseReport(c *gin.Context) {
 	}
 
 	userType, exists := c.Get("user_type")
-	if !exists || userType != "ADMIN" {
+	if !exists || userType != models.Admin {
 		response.GenerateForbiddenResponse(c, "support/delete-abuse-report", "Admin access required")
 		return
 	}

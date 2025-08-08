@@ -1,12 +1,16 @@
 package support
 
 import (
+	"fmt"
+	"html/template"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/YasserCherfaoui/MarketProGo/models"
 	"github.com/YasserCherfaoui/MarketProGo/utils/response"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CreateDisputeRequest represents the request to create a dispute
@@ -45,6 +49,73 @@ type UpdateDisputeRequest struct {
 type DisputeResponseRequest struct {
 	Message    string `json:"message" binding:"required"`
 	IsInternal bool   `json:"is_internal"`
+}
+
+// applyDisputeFilters applies filters/sort/pagination on disputes
+func (h *SupportHandler) applyDisputeFilters(c *gin.Context, query *gorm.DB) (*gorm.DB, int, int) {
+	if status := c.Query("status"); status != "" {
+		query = query.Where("status IN ?", strings.Split(strings.ToUpper(status), ","))
+	}
+	if category := c.Query("category"); category != "" {
+		query = query.Where("category IN ?", strings.Split(strings.ToUpper(category), ","))
+	}
+	if priority := c.Query("priority"); priority != "" {
+		query = query.Where("priority IN ?", strings.Split(strings.ToUpper(priority), ","))
+	}
+	if min := c.Query("amount_min"); min != "" {
+		if v, err := strconv.ParseFloat(min, 64); err == nil {
+			query = query.Where("amount >= ?", v)
+		}
+	}
+	if max := c.Query("amount_max"); max != "" {
+		if v, err := strconv.ParseFloat(max, 64); err == nil {
+			query = query.Where("amount <= ?", v)
+		}
+	}
+	if start := c.Query("start_date"); start != "" {
+		if t, err := time.Parse(time.RFC3339, start); err == nil {
+			query = query.Where("created_at >= ?", t)
+		} else if t2, err2 := time.Parse("2006-01-02", start); err2 == nil {
+			query = query.Where("created_at >= ?", t2)
+		}
+	}
+	if end := c.Query("end_date"); end != "" {
+		if t, err := time.Parse(time.RFC3339, end); err == nil {
+			query = query.Where("created_at <= ?", t)
+		} else if t2, err2 := time.Parse("2006-01-02", end); err2 == nil {
+			query = query.Where("created_at < ?", t2.Add(24*time.Hour))
+		}
+	}
+	// sort
+	sort := strings.ToLower(c.DefaultQuery("sort_by", "date"))
+	order := strings.ToUpper(c.DefaultQuery("sort_order", "DESC"))
+	if order != "ASC" {
+		order = "DESC"
+	}
+	switch sort {
+	case "date":
+		query = query.Order("created_at " + order)
+	case "priority":
+		caseExpr := fmt.Sprintf("CASE priority WHEN 'LOW' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'HIGH' THEN 3 WHEN 'URGENT' THEN 4 END %s", order)
+		query = query.Order(caseExpr).Order("created_at DESC")
+	case "amount":
+		query = query.Order("amount " + order).Order("created_at DESC")
+	case "status":
+		query = query.Order("status " + order).Order("created_at DESC")
+	default:
+		query = query.Order("created_at DESC")
+	}
+	// pagination
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 20
+	}
+	query = query.Offset((page - 1) * pageSize).Limit(pageSize)
+	return query, page, pageSize
 }
 
 // CreateDispute creates a new dispute
@@ -131,7 +202,7 @@ func (h *SupportHandler) GetDispute(c *gin.Context) {
 	// Only allow users to view their own disputes or admins to view any dispute
 	if dispute.UserID != userID.(uint) {
 		userType, _ := c.Get("user_type")
-		if userType != "ADMIN" {
+		if userType != models.Admin {
 			response.GenerateForbiddenResponse(c, "support/get-dispute", "Access denied")
 			return
 		}
@@ -147,30 +218,30 @@ func (h *SupportHandler) GetUserDisputes(c *gin.Context) {
 		response.GenerateUnauthorizedResponse(c, "support/get-user-disputes", "User not authenticated")
 		return
 	}
-
 	var disputes []models.Dispute
-	if err := h.db.Where("user_id = ?", userID).Preload("User").Preload("Order").Preload("Payment").Order("created_at DESC").Find(&disputes).Error; err != nil {
+	q := h.db.Where("user_id = ?", userID).Model(&models.Dispute{})
+	q, _, _ = h.applyDisputeFilters(c, q)
+	if err := q.Preload("User").Preload("Order").Preload("Payment").Order("created_at DESC").Find(&disputes).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "support/get-user-disputes", err.Error())
 		return
 	}
-
 	response.GenerateSuccessResponse(c, "User disputes retrieved successfully", disputes)
 }
 
 // GetAllDisputes retrieves all disputes (admin only)
 func (h *SupportHandler) GetAllDisputes(c *gin.Context) {
 	userType, exists := c.Get("user_type")
-	if !exists || userType != "ADMIN" {
+	if !exists || userType != models.Admin {
 		response.GenerateForbiddenResponse(c, "support/get-all-disputes", "Admin access required")
 		return
 	}
-
 	var disputes []models.Dispute
-	if err := h.db.Preload("User").Preload("Order").Preload("Payment").Order("created_at DESC").Find(&disputes).Error; err != nil {
+	q := h.db.Model(&models.Dispute{})
+	q, _, _ = h.applyDisputeFilters(c, q)
+	if err := q.Preload("User").Preload("Order").Preload("Payment").Find(&disputes).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "support/get-all-disputes", err.Error())
 		return
 	}
-
 	response.GenerateSuccessResponse(c, "All disputes retrieved successfully", disputes)
 }
 
@@ -202,7 +273,7 @@ func (h *SupportHandler) UpdateDispute(c *gin.Context) {
 	}
 
 	userType, _ := c.Get("user_type")
-	if dispute.UserID != userID.(uint) && userType != "ADMIN" {
+	if dispute.UserID != userID.(uint) && userType != models.Admin {
 		response.GenerateForbiddenResponse(c, "support/update-dispute", "Access denied")
 		return
 	}
@@ -241,6 +312,24 @@ func (h *SupportHandler) UpdateDispute(c *gin.Context) {
 		return
 	}
 
+	// send status update email if status changed
+	if _, ok := updates["status"]; ok && h.emailTriggerSvc != nil {
+		var user models.User
+		if err := h.db.First(&user, dispute.UserID).Error; err == nil {
+			data := map[string]interface{}{
+				"UserName":        strings.TrimSpace(user.FirstName + " " + user.LastName),
+				"DisputeID":       dispute.ID,
+				"DisputeTitle":    dispute.Title,
+				"OldStatus":       "",
+				"NewStatus":       updates["status"],
+				"UserMessageHTML": template.HTML(dispute.Description),
+				"AdminNoteHTML":   template.HTML(fmt.Sprintf("%v", updates["internal_notes"])),
+				"subject":         fmt.Sprintf("Your dispute #%d status updated", dispute.ID),
+			}
+			_ = h.emailTriggerSvc.TriggerDisputeStatusUpdated(user.Email, data["UserName"].(string), data)
+		}
+	}
+
 	// Load updated dispute
 	if err := h.db.Preload("User").Preload("Order").Preload("Payment").Preload("Attachments").Preload("Responses.User").First(&dispute, disputeID).Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "support/update-dispute", "Failed to load updated dispute")
@@ -277,7 +366,7 @@ func (h *SupportHandler) AddDisputeResponse(c *gin.Context) {
 	}
 
 	userType, _ := c.Get("user_type")
-	isAdmin := userType == "ADMIN"
+	isAdmin := userType == models.Admin
 
 	// Check permissions
 	if dispute.UserID != userID.(uint) && !isAdmin {
@@ -299,6 +388,29 @@ func (h *SupportHandler) AddDisputeResponse(c *gin.Context) {
 		return
 	}
 
+	// Email notify dispute owner on non-internal responses
+	if !request.IsInternal && h.emailTriggerSvc != nil {
+		var owner models.User
+		if err := h.db.First(&owner, dispute.UserID).Error; err == nil {
+			responderName := "User"
+			var responder models.User
+			if err := h.db.First(&responder, userID.(uint)).Error; err == nil {
+				responderName = strings.TrimSpace(responder.FirstName + " " + responder.LastName)
+			}
+			data := map[string]interface{}{
+				"UserName":        strings.TrimSpace(owner.FirstName + " " + owner.LastName),
+				"DisputeID":       dispute.ID,
+				"DisputeTitle":    dispute.Title,
+				"UserMessageHTML": template.HTML(dispute.Description),
+				"ResponderName":   responderName,
+				"RespondedAt":     time.Now().Format("2006-01-02 15:04:05"),
+				"ResponseHTML":    template.HTML(request.Message),
+				"subject":         fmt.Sprintf("New response on your dispute #%d", dispute.ID),
+			}
+			_ = h.emailTriggerSvc.TriggerDisputeResponse(owner.Email, data["UserName"].(string), data)
+		}
+	}
+
 	// Update dispute status if admin responded
 	if isAdmin && dispute.Status == models.DisputeStatusOpen {
 		h.db.Model(&dispute).Update("status", models.DisputeStatusInProgress)
@@ -316,7 +428,7 @@ func (h *SupportHandler) DeleteDispute(c *gin.Context) {
 	}
 
 	userType, exists := c.Get("user_type")
-	if !exists || userType != "ADMIN" {
+	if !exists || userType != models.Admin {
 		response.GenerateForbiddenResponse(c, "support/delete-dispute", "Admin access required")
 		return
 	}

@@ -361,6 +361,20 @@ func (s *EmailServiceImplementation) getTemplateNameForType(emailType models.Ema
 		return "security_alert"
 	case models.EmailTypeAdminNotification:
 		return "admin_notification"
+	case models.EmailTypeContactInquiryResponse:
+		return "contact_inquiry_response"
+	case models.EmailTypeContactStatusUpdated:
+		return "contact_status_updated"
+	case models.EmailTypeTicketResponse:
+		return "ticket_response"
+	case models.EmailTypeTicketStatusUpdated:
+		return "ticket_status_updated"
+	case models.EmailTypeDisputeResponse:
+		return "dispute_response"
+	case models.EmailTypeDisputeStatusUpdated:
+		return "dispute_status_updated"
+	case models.EmailTypeAbuseStatusUpdated:
+		return "abuse_status_updated"
 	default:
 		return ""
 	}

@@ -297,3 +297,49 @@ func (t *EmailTriggerService) TriggerPaymentFailedAdminNotification(orderID uint
 
 	return nil
 }
+
+// Support notification helpers
+
+// TriggerTicketResponse notifies user about a new response on their ticket
+func (t *EmailTriggerService) TriggerTicketResponse(userEmail, userName string, data map[string]interface{}) error {
+	recipient := models.EmailRecipient{Email: userEmail, Name: userName}
+	return t.emailService.SendTransactionalEmail(models.EmailTypeTicketResponse, data, recipient)
+}
+
+// TriggerTicketStatusUpdated notifies user about ticket status change
+func (t *EmailTriggerService) TriggerTicketStatusUpdated(userEmail, userName string, data map[string]interface{}) error {
+	recipient := models.EmailRecipient{Email: userEmail, Name: userName}
+	return t.emailService.SendTransactionalEmail(models.EmailTypeTicketStatusUpdated, data, recipient)
+}
+
+// TriggerDisputeResponse notifies user about a new response on their dispute
+func (t *EmailTriggerService) TriggerDisputeResponse(userEmail, userName string, data map[string]interface{}) error {
+	recipient := models.EmailRecipient{Email: userEmail, Name: userName}
+	return t.emailService.SendTransactionalEmail(models.EmailTypeDisputeResponse, data, recipient)
+}
+
+// TriggerDisputeStatusUpdated notifies user about dispute status change
+func (t *EmailTriggerService) TriggerDisputeStatusUpdated(userEmail, userName string, data map[string]interface{}) error {
+	recipient := models.EmailRecipient{Email: userEmail, Name: userName}
+	return t.emailService.SendTransactionalEmail(models.EmailTypeDisputeStatusUpdated, data, recipient)
+}
+
+// TriggerContactStatusUpdated notifies user about inquiry status change
+func (t *EmailTriggerService) TriggerContactStatusUpdated(userEmail, userName string, data map[string]interface{}) error {
+	recipient := models.EmailRecipient{Email: userEmail, Name: userName}
+	return t.emailService.SendTransactionalEmail(models.EmailTypeContactStatusUpdated, data, recipient)
+}
+
+// TriggerAbuseStatusUpdated notifies reporter about abuse report status change
+func (t *EmailTriggerService) TriggerAbuseStatusUpdated(userEmail, userName string, data map[string]interface{}) error {
+	recipient := models.EmailRecipient{Email: userEmail, Name: userName}
+	return t.emailService.SendTransactionalEmail(models.EmailTypeAbuseStatusUpdated, data, recipient)
+}
+
+// SendTemplateDirect renders and queues a specific template name with given recipient
+func (t *EmailTriggerService) SendTemplateDirect(templateName string, data map[string]interface{}, recipient models.EmailRecipient, emailType models.EmailType) error {
+	// Render and send via EmailService directly using transactional path
+	// We temporarily set subject via data["subject"] in callers
+	// Bypass type-to-template mapping by directly calling SendEmail with templateName
+	return t.emailService.SendEmail(templateName, data, recipient)
+}
