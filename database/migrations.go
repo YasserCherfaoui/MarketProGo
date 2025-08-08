@@ -45,6 +45,7 @@ func RunMigrations(db *gorm.DB) error {
 		{"010_create_email_indexes", createEmailIndexes},
 		{"011_create_wishlist_tables", createWishlistTables},
 		{"012_create_support_tables", createSupportTables},
+		{"013_create_password_reset_table", createPasswordResetTable},
 	}
 
 	// Run each migration
@@ -822,5 +823,20 @@ func createSupportTables(db *gorm.DB) error {
 	}
 
 	fmt.Println("Successfully created support tables and indexes")
+	return nil
+}
+
+// createPasswordResetTable creates table for password reset tokens
+func createPasswordResetTable(db *gorm.DB) error {
+	if err := db.AutoMigrate(&models.PasswordResetToken{}); err != nil {
+		return fmt.Errorf("failed to create password_reset_tokens table: %w", err)
+	}
+	// indexes
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_password_reset_user_id ON password_reset_tokens(user_id)").Error; err != nil {
+		return err
+	}
+	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_password_reset_expires_at ON password_reset_tokens(expires_at)").Error; err != nil {
+		return err
+	}
 	return nil
 }

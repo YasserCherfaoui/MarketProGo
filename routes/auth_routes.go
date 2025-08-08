@@ -12,6 +12,9 @@ func AuthRoutes(router *gin.RouterGroup, h *auth.AuthHandler) {
 	{
 		auth.POST("/login", h.Login)
 		auth.POST("/register", h.CreateUser)
+		auth.POST("/forgot-password", h.ForgotPassword)
+		auth.GET("/verify-reset-token", h.VerifyResetToken)
+		auth.POST("/reset-password", h.ResetPassword)
 	}
 	protectedAuth := auth.Use(middlewares.AuthMiddleware())
 	{
