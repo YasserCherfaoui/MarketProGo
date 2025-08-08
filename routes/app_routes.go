@@ -53,5 +53,8 @@ func AppRoutes(r *gin.Engine, db *gorm.DB, gcsService *gcs.GCService, appwriteSe
 	paymentHandler := payment.NewPaymentHandler(db, revolutPaymentService)
 	SetupPaymentRoutes(r, paymentHandler)
 
+	// Register Support routes
+	SupportRoutes(router, db, gcsService, appwriteService)
+
 	router.GET("/file/preview/:fileId", fileHandler.ProxyFilePreview)
 }

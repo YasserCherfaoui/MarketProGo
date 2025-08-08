@@ -44,6 +44,7 @@ func RunMigrations(db *gorm.DB) error {
 		{"009_create_email_tables", createEmailTables},
 		{"010_create_email_indexes", createEmailIndexes},
 		{"011_create_wishlist_tables", createWishlistTables},
+		{"012_create_support_tables", createSupportTables},
 	}
 
 	// Run each migration
@@ -746,5 +747,80 @@ func createWishlistTables(db *gorm.DB) error {
 	}
 
 	fmt.Println("Successfully created wishlist tables and indexes")
+	return nil
+}
+
+// createSupportTables creates the support-related tables
+func createSupportTables(db *gorm.DB) error {
+	// Create SupportTicket table
+	if err := db.AutoMigrate(&models.SupportTicket{}); err != nil {
+		return fmt.Errorf("failed to create support_tickets table: %w", err)
+	}
+
+	// Create TicketAttachment table
+	if err := db.AutoMigrate(&models.TicketAttachment{}); err != nil {
+		return fmt.Errorf("failed to create ticket_attachments table: %w", err)
+	}
+
+	// Create TicketResponse table
+	if err := db.AutoMigrate(&models.TicketResponse{}); err != nil {
+		return fmt.Errorf("failed to create ticket_responses table: %w", err)
+	}
+
+	// Create AbuseReport table
+	if err := db.AutoMigrate(&models.AbuseReport{}); err != nil {
+		return fmt.Errorf("failed to create abuse_reports table: %w", err)
+	}
+
+	// Create AbuseReportAttachment table
+	if err := db.AutoMigrate(&models.AbuseReportAttachment{}); err != nil {
+		return fmt.Errorf("failed to create abuse_report_attachments table: %w", err)
+	}
+
+	// Create ContactInquiry table
+	if err := db.AutoMigrate(&models.ContactInquiry{}); err != nil {
+		return fmt.Errorf("failed to create contact_inquiries table: %w", err)
+	}
+
+	// Create Dispute table
+	if err := db.AutoMigrate(&models.Dispute{}); err != nil {
+		return fmt.Errorf("failed to create disputes table: %w", err)
+	}
+
+	// Create DisputeAttachment table
+	if err := db.AutoMigrate(&models.DisputeAttachment{}); err != nil {
+		return fmt.Errorf("failed to create dispute_attachments table: %w", err)
+	}
+
+	// Create DisputeResponse table
+	if err := db.AutoMigrate(&models.DisputeResponse{}); err != nil {
+		return fmt.Errorf("failed to create dispute_responses table: %w", err)
+	}
+
+	// Create indexes for efficient support queries
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_support_tickets_user_id ON support_tickets(user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets(status)",
+		"CREATE INDEX IF NOT EXISTS idx_support_tickets_category ON support_tickets(category)",
+		"CREATE INDEX IF NOT EXISTS idx_support_tickets_created_at ON support_tickets(created_at)",
+		"CREATE INDEX IF NOT EXISTS idx_ticket_responses_ticket_id ON ticket_responses(ticket_id)",
+		"CREATE INDEX IF NOT EXISTS idx_ticket_responses_user_id ON ticket_responses(user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_abuse_reports_reporter_id ON abuse_reports(reporter_id)",
+		"CREATE INDEX IF NOT EXISTS idx_abuse_reports_status ON abuse_reports(status)",
+		"CREATE INDEX IF NOT EXISTS idx_abuse_reports_category ON abuse_reports(category)",
+		"CREATE INDEX IF NOT EXISTS idx_contact_inquiries_email ON contact_inquiries(email)",
+		"CREATE INDEX IF NOT EXISTS idx_contact_inquiries_status ON contact_inquiries(status)",
+		"CREATE INDEX IF NOT EXISTS idx_disputes_user_id ON disputes(user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_disputes_status ON disputes(status)",
+		"CREATE INDEX IF NOT EXISTS idx_disputes_category ON disputes(category)",
+	}
+
+	for _, index := range indexes {
+		if err := db.Exec(index).Error; err != nil {
+			return fmt.Errorf("failed to create support index: %w", err)
+		}
+	}
+
+	fmt.Println("Successfully created support tables and indexes")
 	return nil
 }

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support Ticket Created</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 0 0 5px 5px;
+        }
+        .ticket-info {
+            background-color: white;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .ticket-id {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .priority {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .priority-high {
+            background-color: #dc3545;
+            color: white;
+        }
+        .priority-medium {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .priority-low {
+            background-color: #28a745;
+            color: white;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            color: #6c757d;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Support Ticket Created</h1>
+    </div>
+    
+    <div class="content">
+        <p>Dear {{.UserName}},</p>
+        
+        <p>Your support ticket has been successfully created and is being reviewed by our support team.</p>
+        
+        <div class="ticket-info">
+            <h3>Ticket Details</h3>
+            <p><strong>Ticket ID:</strong> <span class="ticket-id">#{{.TicketID}}</span></p>
+            <p><strong>Title:</strong> {{.TicketTitle}}</p>
+            <p><strong>Category:</strong> {{.TicketCategory}}</p>
+            <p><strong>Priority:</strong> <span class="priority priority-{{.TicketPriority}}">{{.TicketPriority}}</span></p>
+            <p><strong>Status:</strong> {{.TicketStatus}}</p>
+            <p><strong>Created:</strong> {{.CreatedAt}}</p>
+        </div>
+        
+        <p><strong>Description:</strong></p>
+        <p>{{.TicketDescription}}</p>
+        
+        <p>We will review your ticket and respond within 24-48 hours. You can track the status of your ticket by logging into your account.</p>
+        
+        <p>If you have any additional information to add to your ticket, please reply to this email or log into your account.</p>
+        
+        <p>Thank you for choosing Algeria Market!</p>
+        
+        <p>Best regards,<br>
+        Algeria Market Support Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated message. Please do not reply to this email.</p>
+        <p>&copy; 2024 Algeria Market. All rights reserved.</p>
+    </div>
+</body>
+</html>
