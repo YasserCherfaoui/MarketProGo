@@ -129,7 +129,7 @@ func (h *OrderHandler) UpdatePaymentStatus(c *gin.Context) {
 			"order_number":   orderWithUser.OrderNumber,
 			"order_date":     orderWithUser.OrderDate,
 			"total_amount":   orderWithUser.FinalAmount,
-			"currency":       "DZD", // Default currency
+			"currency":       "GBP",
 			"payment_method": orderWithUser.PaymentMethod,
 			"customer_name":  fmt.Sprintf("%s %s", orderWithUser.User.FirstName, orderWithUser.User.LastName),
 			"amount":         orderWithUser.FinalAmount,

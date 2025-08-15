@@ -46,6 +46,7 @@ func SupportRoutes(router *gin.RouterGroup, db *gorm.DB, gcsService *gcs.GCServi
 	{
 		adminAbuse.GET("/reports", supportHandler.GetAllAbuseReports)
 	}
+	
 	router.POST("/contact/inquiries", supportHandler.CreateContactInquiry)
 
 	// Contact inquiries routes

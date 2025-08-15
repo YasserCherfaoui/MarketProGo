@@ -198,7 +198,7 @@ func (h *OrderHandler) PlaceOrder(c *gin.Context) {
 			"order_number":     completeOrder.OrderNumber,
 			"order_date":       completeOrder.OrderDate,
 			"total_amount":     completeOrder.FinalAmount,
-			"currency":         "DZD", // Default currency
+			"currency":         "GBP",
 			"items":            completeOrder.Items,
 			"shipping_address": completeOrder.ShippingAddress,
 		}

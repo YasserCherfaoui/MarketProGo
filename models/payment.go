@@ -56,7 +56,7 @@ type Payment struct {
 	RevolutOrderID   string               `json:"revolut_order_id" gorm:"uniqueIndex"`
 	RevolutPaymentID string               `json:"revolut_payment_id" gorm:"uniqueIndex"`
 	Amount           float64              `json:"amount" gorm:"not null"`
-	Currency         string               `json:"currency" gorm:"not null;default:'EUR'"`
+	Currency         string               `json:"currency" gorm:"not null;default:'GBP'"`
 	Status           RevolutPaymentStatus `json:"status" gorm:"type:varchar(20);not null;default:'PENDING'"`
 	PaymentMethod    string               `json:"payment_method"`
 	CustomerID       string               `json:"customer_id"`

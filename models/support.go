@@ -239,7 +239,7 @@ type Dispute struct {
 	Status          DisputeStatus   `json:"status" gorm:"type:varchar(20);default:'open'"`
 	Priority        DisputePriority `json:"priority" gorm:"type:varchar(20);default:'medium'"`
 	Amount          *float64        `json:"amount,omitempty"`
-	Currency        string          `json:"currency" gorm:"default:'USD'"`
+	Currency        string          `json:"currency" gorm:"default:'GBP'"`
 	AssignedTo      *uint           `json:"assigned_to,omitempty"`
 	AssignedUser    *User           `json:"assigned_user,omitempty" gorm:"foreignKey:AssignedTo"`
 	Resolution      string          `json:"resolution" gorm:"type:text"`
