@@ -45,7 +45,7 @@ func ConnectDB() (*gorm.DB, error) {
 	}
 	// Always run migrations for email models
 
-	if gin.Mode() != gin.ReleaseMode {
+	if gin.Mode() == gin.ReleaseMode {
 		if err := db.AutoMigrate(
 			&models.Company{},
 			&models.User{},

@@ -53,6 +53,10 @@ func (h *ProductHandler) GetProductVariants(c *gin.Context) {
 		Preload("InventoryItems.Warehouse").
 		Preload("PriceTiers")
 
+	// Always filter for active products by default
+	db = db.Joins("JOIN products ON products.id = product_variants.product_id").
+		Where("products.is_active = ?", true)
+
 	// Apply filters
 	if productIDStr != "" {
 		if productID, err := strconv.Atoi(productIDStr); err == nil {
@@ -67,10 +71,9 @@ func (h *ProductHandler) GetProductVariants(c *gin.Context) {
 	}
 
 	if search != "" {
-		// Join with products table to search by product name, and also search variant SKU/barcode
-		db = db.Joins("JOIN products ON products.id = product_variants.product_id").
-			Where("products.name ILIKE ? OR product_variants.sku ILIKE ? OR product_variants.barcode ILIKE ?",
-				"%"+search+"%", "%"+search+"%", "%"+search+"%")
+		// Search by product name, variant SKU/barcode (products table already joined)
+		db = db.Where("products.name ILIKE ? OR product_variants.sku ILIKE ? OR product_variants.barcode ILIKE ?",
+			"%"+search+"%", "%"+search+"%", "%"+search+"%")
 	}
 
 	// Get total count

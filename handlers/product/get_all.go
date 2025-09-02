@@ -92,7 +92,10 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	if name != "" {
 		subQuery = subQuery.Where("products.name ILIKE ?", "%"+name+"%")
 	}
-	if isActive != "" {
+	// Always filter for active products by default, unless explicitly overridden
+	if isActive == "" {
+		subQuery = subQuery.Where("products.is_active = ?", true)
+	} else {
 		subQuery = subQuery.Where("products.is_active = ?", isActive == "true")
 	}
 	if isFeatured != "" {

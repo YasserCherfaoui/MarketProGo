@@ -8,9 +8,10 @@ import (
 
 func (h *ProductHandler) GetProduct(c *gin.Context) {
 	productID := c.Param("id")
+	includeInactive := c.Query("include_inactive") == "true"
 
 	var product models.Product
-	err := h.db.
+	query := h.db.
 		Preload("Brand").
 		Preload("Categories").
 		Preload("Tags").
@@ -21,8 +22,14 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 		Preload("Variants.InventoryItems").
 		Preload("Variants.InventoryItems.Warehouse").
 		Preload("Variants.PriceTiers").
-		Preload("Specifications").
-		First(&product, "id = ?", productID).Error
+		Preload("Specifications")
+
+	// Only fetch active products by default
+	if !includeInactive {
+		query = query.Where("is_active = ?", true)
+	}
+
+	err := query.First(&product, "id = ?", productID).Error
 
 	if err != nil {
 		response.GenerateNotFoundResponse(c, "product/get", "Product not found")
