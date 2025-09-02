@@ -46,6 +46,7 @@ func RunMigrations(db *gorm.DB) error {
 		{"011_create_wishlist_tables", createWishlistTables},
 		{"012_create_support_tables", createSupportTables},
 		{"013_create_password_reset_table", createPasswordResetTable},
+		{"014_add_product_variant_quantity_in_stock", addProductVariantQuantityInStock},
 	}
 
 	// Run each migration
@@ -838,5 +839,16 @@ func createPasswordResetTable(db *gorm.DB) error {
 	if err := db.Exec("CREATE INDEX IF NOT EXISTS idx_password_reset_expires_at ON password_reset_tokens(expires_at)").Error; err != nil {
 		return err
 	}
+	return nil
+}
+
+// addProductVariantQuantityInStock adds the quantity_in_stock field to product_variants table
+func addProductVariantQuantityInStock(db *gorm.DB) error {
+	// Add the quantity_in_stock column to product_variants table
+	if err := db.Exec("ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS quantity_in_stock INTEGER DEFAULT 0").Error; err != nil {
+		return fmt.Errorf("failed to add quantity_in_stock column to product_variants table: %w", err)
+	}
+
+	fmt.Println("Successfully added quantity_in_stock field to product_variants table")
 	return nil
 }

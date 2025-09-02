@@ -50,20 +50,21 @@ type PriceTierData struct {
 }
 
 type VariantData struct {
-	Name         string            `json:"name"`
-	SKU          string            `json:"sku"`
-	Barcode      string            `json:"barcode"`
-	BasePrice    float64           `json:"base_price"`
-	B2BPrice     float64           `json:"b2b_price"`
-	CostPrice    float64           `json:"cost_price"`
-	Weight       float64           `json:"weight"`
-	WeightUnit   string            `json:"weight_unit"`
-	Dimensions   models.Dimensions `json:"dimensions"`
-	IsActive     bool              `json:"is_active"`
-	Images       []ImageData       `json:"images"`
-	OptionValues []string          `json:"option_values"`
-	MinQuantity  int               `json:"min_quantity"`
-	PriceTiers   []PriceTierData   `json:"price_tiers"`
+	Name            string            `json:"name"`
+	SKU             string            `json:"sku"`
+	Barcode         string            `json:"barcode"`
+	BasePrice       float64           `json:"base_price"`
+	B2BPrice        float64           `json:"b2b_price"`
+	CostPrice       float64           `json:"cost_price"`
+	Weight          float64           `json:"weight"`
+	WeightUnit      string            `json:"weight_unit"`
+	Dimensions      models.Dimensions `json:"dimensions"`
+	IsActive        bool              `json:"is_active"`
+	Images          []ImageData       `json:"images"`
+	OptionValues    []string          `json:"option_values"`
+	MinQuantity     int               `json:"min_quantity"`
+	QuantityInStock int               `json:"quantity_in_stock"`
+	PriceTiers      []PriceTierData   `json:"price_tiers"`
 }
 
 type VariantUpdateData struct {
@@ -79,6 +80,7 @@ type VariantUpdateData struct {
 	Dimensions           *models.Dimensions `json:"dimensions"`
 	IsActive             *bool              `json:"is_active"`
 	MinQuantity          *int               `json:"min_quantity"`
+	QuantityInStock      *int               `json:"quantity_in_stock"`
 	PriceTiers           *[]PriceTierData   `json:"price_tiers"`
 	OptionValuesToAdd    *[]string          `json:"option_values_to_add"`
 	OptionValuesToRemove *[]string          `json:"option_values_to_remove"`

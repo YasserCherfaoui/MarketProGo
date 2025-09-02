@@ -17,6 +17,13 @@ type PaginatedResponse struct {
 	PageSize int         `json:"page_size"`
 }
 
+// ProductWithStock extends the Product model with stock information
+type ProductWithStock struct {
+	models.Product
+	TotalStock int `json:"total_stock"`
+	MaxStock   int `json:"max_stock"`
+}
+
 func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	// Query params
 	name := c.Query("name")
@@ -32,6 +39,7 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	brandSlug := c.Query("brand_slug")
 	priceType := c.DefaultQuery("price_type", "customer") // customer or business
 	sortByPrice := c.Query("sort_by_price")               // asc or desc
+	sortByStock := c.Query("sort_by_stock")               // asc or desc
 
 	var products []models.Product
 
@@ -52,7 +60,7 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	subQuery := h.db.Model(&models.Product{}).Select("DISTINCT products.id")
 
 	// Apply filters that require joins
-	requiresVariantJoin := sku != "" || barcode != "" || minPrice != "" || maxPrice != "" || sortByPrice != ""
+	requiresVariantJoin := sku != "" || barcode != "" || minPrice != "" || maxPrice != "" || sortByPrice != "" || sortByStock != ""
 	if requiresVariantJoin {
 		subQuery = subQuery.Joins("JOIN product_variants ON product_variants.product_id = products.id")
 	}
@@ -118,7 +126,8 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 		subQuery = subQuery.Where(priceField+" <= ?", maxPrice)
 	}
 
-	if sortByPrice != "" && (sortByPrice == "asc" || sortByPrice == "desc") {
+	if (sortByPrice != "" && (sortByPrice == "asc" || sortByPrice == "desc")) ||
+		(sortByStock != "" && (sortByStock == "asc" || sortByStock == "desc")) {
 		// Ordering needs to be on the outer query
 		db = db.Order("id ASC") // Default order
 	}
@@ -151,6 +160,10 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 	// Apply sorting
 	if sortByPrice != "" && (sortByPrice == "asc" || sortByPrice == "desc") {
 		db = db.Order(fmt.Sprintf("%s %s", priceField, sortByPrice))
+	} else if sortByStock != "" && (sortByStock == "asc" || sortByStock == "desc") {
+		// Sort by the maximum quantity_in_stock among variants for each product
+		orderClause := fmt.Sprintf("(SELECT MAX(quantity_in_stock) FROM product_variants WHERE product_variants.product_id = products.id) %s", sortByStock)
+		db = db.Order(orderClause)
 	} else {
 		db = db.Order("products.name ASC")
 	}
@@ -184,8 +197,28 @@ func (h *ProductHandler) GetAllProducts(c *gin.Context) {
 		// TODO: Add proper logging
 	}
 
+	// Transform products to include stock information
+	var productsWithStock []ProductWithStock
+	for _, product := range products {
+		totalStock := 0
+		maxStock := 0
+		for _, variant := range product.Variants {
+			totalStock += variant.QuantityInStock
+			if variant.QuantityInStock > maxStock {
+				maxStock = variant.QuantityInStock
+			}
+		}
+
+		productWithStock := ProductWithStock{
+			Product:    product,
+			TotalStock: totalStock,
+			MaxStock:   maxStock,
+		}
+		productsWithStock = append(productsWithStock, productWithStock)
+	}
+
 	resp := PaginatedResponse{
-		Data:     products,
+		Data:     productsWithStock,
 		Total:    total,
 		Page:     page,
 		PageSize: pageSize,

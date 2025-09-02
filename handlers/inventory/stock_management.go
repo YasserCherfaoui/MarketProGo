@@ -240,6 +240,12 @@ func (h *InventoryHandler) AdjustStock(c *gin.Context) {
 	// Load complete inventory item for response
 	h.db.Preload("ProductVariant.Product").Preload("Warehouse").First(&inventoryItem, inventoryItem.ID)
 
+	// Sync the QuantityInStock field with actual inventory
+	if err := h.syncProductVariantStock(req.ProductVariantID); err != nil {
+		// Log the error but don't fail the request
+		fmt.Printf("Warning: Failed to sync product variant stock: %v\n", err)
+	}
+
 	response.GenerateSuccessResponse(c, "Stock adjusted successfully", inventoryItem)
 }
 
@@ -313,6 +319,14 @@ func (h *InventoryHandler) BulkAdjustStock(c *gin.Context) {
 	if err := tx.Commit().Error; err != nil {
 		response.GenerateInternalServerErrorResponse(c, "inventory/bulk_adjust_stock", "Failed to commit transaction")
 		return
+	}
+
+	// Sync QuantityInStock for all affected variants
+	for _, item := range req.Items {
+		if err := h.syncProductVariantStock(item.ProductVariantID); err != nil {
+			// Log the error but don't fail the request
+			fmt.Printf("Warning: Failed to sync product variant stock for ID %d: %v\n", item.ProductVariantID, err)
+		}
 	}
 
 	resp := map[string]interface{}{
@@ -461,6 +475,12 @@ func (h *InventoryHandler) TransferStock(c *gin.Context) {
 		return
 	}
 
+	// Sync the QuantityInStock field with actual inventory
+	if err := h.syncProductVariantStock(req.ProductVariantID); err != nil {
+		// Log the error but don't fail the request
+		fmt.Printf("Warning: Failed to sync product variant stock: %v\n", err)
+	}
+
 	resp := map[string]interface{}{
 		"transfer_reference": req.TransferReference,
 		"from_warehouse":     fromWarehouse.Name,
@@ -554,4 +574,29 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+// syncProductVariantStock updates the QuantityInStock field in ProductVariant
+// to reflect the total quantity across all warehouses
+func (h *InventoryHandler) syncProductVariantStock(productVariantID uint) error {
+	var totalStock int
+	err := h.db.Model(&models.InventoryItem{}).
+		Where("product_variant_id = ?", productVariantID).
+		Select("COALESCE(SUM(quantity), 0)").
+		Row().Scan(&totalStock)
+
+	if err != nil {
+		return fmt.Errorf("failed to calculate total stock: %w", err)
+	}
+
+	// Update the ProductVariant's QuantityInStock field
+	err = h.db.Model(&models.ProductVariant{}).
+		Where("id = ?", productVariantID).
+		Update("quantity_in_stock", totalStock).Error
+
+	if err != nil {
+		return fmt.Errorf("failed to update product variant stock: %w", err)
+	}
+
+	return nil
 }

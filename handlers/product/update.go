@@ -254,18 +254,19 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 		// Add
 		for _, varData := range data.VariantsToAdd {
 			variant := models.ProductVariant{
-				ProductID:   product.ID,
-				Name:        varData.Name,
-				SKU:         varData.SKU,
-				Barcode:     varData.Barcode,
-				BasePrice:   varData.BasePrice,
-				B2BPrice:    varData.B2BPrice,
-				CostPrice:   varData.CostPrice,
-				Weight:      varData.Weight,
-				WeightUnit:  varData.WeightUnit,
-				Dimensions:  &varData.Dimensions,
-				IsActive:    varData.IsActive,
-				MinQuantity: varData.MinQuantity,
+				ProductID:       product.ID,
+				Name:            varData.Name,
+				SKU:             varData.SKU,
+				Barcode:         varData.Barcode,
+				BasePrice:       varData.BasePrice,
+				B2BPrice:        varData.B2BPrice,
+				CostPrice:       varData.CostPrice,
+				Weight:          varData.Weight,
+				WeightUnit:      varData.WeightUnit,
+				Dimensions:      &varData.Dimensions,
+				IsActive:        varData.IsActive,
+				MinQuantity:     varData.MinQuantity,
+				QuantityInStock: varData.QuantityInStock,
 			}
 			if err := tx.Create(&variant).Error; err != nil {
 				tx.Rollback()
@@ -427,6 +428,9 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 			}
 			if varUpdateData.MinQuantity != nil {
 				variant.MinQuantity = *varUpdateData.MinQuantity
+			}
+			if varUpdateData.QuantityInStock != nil {
+				variant.QuantityInStock = *varUpdateData.QuantityInStock
 			}
 			if err := tx.Save(&variant).Error; err != nil {
 				tx.Rollback()
